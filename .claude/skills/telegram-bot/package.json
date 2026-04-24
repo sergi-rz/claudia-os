@@ -1,0 +1,9 @@
+{
+  "name": "claudia-telegram-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "telegraf": "^4.16.3"
+  }
+}

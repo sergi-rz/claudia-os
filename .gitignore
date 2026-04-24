@@ -1,0 +1,51 @@
+# Memory index (derivado de los .md, reconstruible)
+user/memory/.index/
+
+# Episodic snapshots (archivados por dream cycle, pueden crecer)
+user/memory/episodes/snapshots/
+
+# Logs de tareas (efímeros, locales)
+user/workspaces/*/logs/
+user/workspaces/*/*/logs/
+
+# Cookies y credenciales
+**/youtube_cookies.txt
+**/.env
+
+# Credenciales: allowlist — ignora todo en user/credentials/ salvo lo explícito
+user/credentials/*
+!user/credentials/.env.example
+!user/credentials/.gitkeep
+!user/credentials/CLAUDE.md
+
+# Datos de sesión y estado de skills
+**/data/sessions.json
+.claude/settings.local.json
+.claude/logs/
+
+# Ficheros temporales
+*.tmp
+.DS_Store
+.obsidian/
+
+# Python
+**/__pycache__/
+*.pyc
+
+# Node
+**/node_modules/
+
+# Python venvs
+**/venv/
+
+# Animaciones generadas (Remotion out/) — cualquier workspace
+user/workspaces/*/yt/animations/out/
+user/workspaces/*/yt/animations/public/out/
+
+# Archivos de audio/vídeo (drafts y animations) — cualquier workspace
+user/workspaces/*/yt/drafts/**/*.mov
+user/workspaces/*/yt/drafts/**/*.wav
+user/workspaces/*/yt/drafts/**/*.mp3
+user/workspaces/*/yt/drafts/**/*.mp4
+user/workspaces/*/yt/animations/public/*.mp4
+user/workspaces/*/yt/animations/public/*.mov

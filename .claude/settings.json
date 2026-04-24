@@ -1,0 +1,9 @@
+{
+  "env": {
+    "CLAUDIA_ADVANCED_MEMORY": "true"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash .claude/statusline.sh"
+  }
+}
