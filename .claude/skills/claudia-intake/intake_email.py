@@ -93,10 +93,11 @@ def _resolve_sender():
     return None
 
 
-def build_html(processed_items, feed_items, stats, wisdom_contents=None):
+def build_html(processed_items, feed_items, stats, wisdom_contents=None, failed_items=None):
     """Genera el HTML del briefing email."""
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
     wisdom_contents = wisdom_contents or {}
+    failed_items = failed_items or []
 
     # Header
     html = f"""<!DOCTYPE html>
@@ -166,6 +167,19 @@ def build_html(processed_items, feed_items, stats, wisdom_contents=None):
 
             html += "</div>\n"
 
+    # Failed items
+    if failed_items:
+        html += f'<p style="color:#991b1b"><strong>{len(failed_items)} contenidos con error</strong></p>\n'
+        for item in failed_items:
+            url = item.get("url", "")
+            title = item.get("title") or url[:60]
+            error = item.get("error", "error desconocido")
+            html += f"""<div class="item" style="border-color:#fca5a5">
+  <h2><a href="{url}">{title}</a></h2>
+  <p style="color:#991b1b;font-size:13px">{error}</p>
+</div>
+"""
+
     # Feed items
     if feed_items:
         html += f"""<div class="feeds">
@@ -191,10 +205,11 @@ def build_html(processed_items, feed_items, stats, wisdom_contents=None):
     return html
 
 
-def build_plain(processed_items, feed_items, stats, wisdom_contents=None):
+def build_plain(processed_items, feed_items, stats, wisdom_contents=None, failed_items=None):
     """Genera versión plain text del briefing."""
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
     wisdom_contents = wisdom_contents or {}
+    failed_items = failed_items or []
     lines = [f"Claudia Briefing — {today}", "=" * 40, ""]
 
     if processed_items:
@@ -208,6 +223,16 @@ def build_plain(processed_items, feed_items, stats, wisdom_contents=None):
             if takeaway:
                 lines.append(f"  {takeaway}")
             lines.append(f"  {item.get('url', '')}")
+            lines.append("")
+
+    if failed_items:
+        lines.append(f"FALLIDOS ({len(failed_items)}):")
+        lines.append("")
+        for item in failed_items:
+            title = item.get("title") or item.get("url", "")[:60]
+            error = item.get("error", "error desconocido")
+            lines.append(f"- {title}")
+            lines.append(f"  Error: {error}")
             lines.append("")
 
     if feed_items:
@@ -264,13 +289,13 @@ def _send_via_smtp(to, subject, plain, html, cfg):
         return False, str(e)
 
 
-def send_email(processed_items, feed_items, stats, wisdom_contents=None):
+def send_email(processed_items, feed_items, stats, wisdom_contents=None, failed_items=None):
     """Genera y envía el briefing. Resuelve el remitente desde email_accounts.json."""
     to = _get_email_to()
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
     subject = f"Claudia Briefing — {today}"
-    plain = build_plain(processed_items, feed_items, stats, wisdom_contents)
-    html = build_html(processed_items, feed_items, stats, wisdom_contents)
+    plain = build_plain(processed_items, feed_items, stats, wisdom_contents, failed_items)
+    html = build_html(processed_items, feed_items, stats, wisdom_contents, failed_items)
 
     sender = _resolve_sender()
     if not sender:

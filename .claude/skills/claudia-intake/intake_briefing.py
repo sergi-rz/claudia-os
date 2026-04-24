@@ -149,7 +149,14 @@ def _parse_wisdom_file(content):
     return result
 
 
-def build_telegram_message(processed, feed_indexed, stats):
+def _get_persistent_failures():
+    """Devuelve items fallidos con errores no transitorios."""
+    from intake_process import _is_transient_error
+    failed = get_items(status="failed")
+    return [i for i in failed if not _is_transient_error(i.get("error"))]
+
+
+def build_telegram_message(processed, feed_indexed, stats, failed=None):
     """Construye el mensaje de Telegram."""
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
     parts = [f"<b>Briefing diario — {today}</b>"]
@@ -168,6 +175,13 @@ def build_telegram_message(processed, feed_indexed, stats):
             if takeaway:
                 line += f"\n  {takeaway[:100]}"
             parts.append(line)
+
+    if failed:
+        parts.append(f"\n<b>Fallidos ({len(failed)}):</b>")
+        for item in failed:
+            title = item.get("title") or item.get("url", "")[:50]
+            error = item.get("error", "error desconocido")[:80]
+            parts.append(f"• {title}\n  {error}")
 
     if feed_indexed:
         parts.append(f"\n<b>Nuevo de feeds ({len(feed_indexed)}):</b>")
@@ -195,22 +209,23 @@ def generate_briefing(telegram=True, email=True, hours=24):
 
     processed = _get_recent_processed(hours)
     feed_indexed = get_feed_new_indexed()
+    failed = _get_persistent_failures()
     stats = get_stats()
 
-    has_content = bool(processed) or bool(feed_indexed)
+    has_content = bool(processed) or bool(feed_indexed) or bool(failed)
     if not has_content:
         print("No hay contenido para el briefing (sin procesados recientes ni feeds nuevos)")
         return
 
-    print(f"Briefing: {len(processed)} procesados, {len(feed_indexed)} feeds nuevos\n")
+    print(f"Briefing: {len(processed)} procesados, {len(feed_indexed)} feeds nuevos, {len(failed)} fallidos\n")
 
     # Telegram
     if telegram:
-        tg_msg = build_telegram_message(processed, feed_indexed, stats)
+        tg_msg = build_telegram_message(processed, feed_indexed, stats, failed)
         _send_telegram(tg_msg)
 
-    # Email (solo si hay items procesados con contenido)
-    if email and processed:
+    # Email (si hay items procesados o fallos que reportar)
+    if email and (processed or failed):
         wisdom_contents = {}
         for item in processed:
             wisdom = _load_wisdom_content(item)
@@ -218,7 +233,7 @@ def generate_briefing(telegram=True, email=True, hours=24):
                 wisdom_contents[item["id"]] = wisdom
 
         feed_items = [item for _, item in feed_indexed]
-        send_email(processed, feed_items, stats, wisdom_contents)
+        send_email(processed, feed_items, stats, wisdom_contents, failed)
 
 
 def main():

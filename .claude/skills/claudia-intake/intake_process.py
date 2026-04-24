@@ -29,6 +29,22 @@ from intake_extract import extract_content
 
 BATCH_SIZE = 5  # Max items por llamada a Claude
 
+TRANSIENT_ERROR_PATTERNS = [
+    "no such file or directory",
+    "timeout",
+    "connection refused",
+    "connection reset",
+    "temporary failure",
+    "resource temporarily unavailable",
+]
+
+
+def _is_transient_error(error):
+    """Detecta errores transitorios que merecen reintento automático."""
+    if not error:
+        return False
+    return any(p in error.lower() for p in TRANSIENT_ERROR_PATTERNS)
+
 EXTRACTION_WARNINGS = {
     "article_x": (
         "⚠️ <b>Artículo de X no extraíble automáticamente</b>\n\n"
@@ -308,6 +324,16 @@ def _update_index(wisdoms, today):
 def process_queue(max_items=None, dry_run=False):
     """Procesa items 'new' de la cola."""
     _load_env()
+
+    # Auto-retry: resetear items con errores transitorios
+    failed = get_items(status="failed")
+    retried = 0
+    for item in failed:
+        if _is_transient_error(item.get("error")):
+            update_status(item["id"], "new", error=None)
+            retried += 1
+    if retried:
+        print(f"Auto-retry: {retried} items con errores transitorios reseteados\n")
 
     items = get_items(status="new")
     if not items:

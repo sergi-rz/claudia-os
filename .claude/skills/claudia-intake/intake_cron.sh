@@ -13,6 +13,8 @@
 
 set -e
 
+export PATH="$HOME/.local/bin:$PATH"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDIA_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 CREDS_FILE="$CLAUDIA_ROOT/user/credentials/.env"
