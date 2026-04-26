@@ -53,12 +53,6 @@ Branch:  main
    ```
    git fetch upstream
    ```
-4. Comprueba que `upstream/main` tiene commits:
-   ```
-   git ls-remote upstream refs/heads/main
-   ```
-   Si devuelve vacío, para con este mensaje:
-   > "El repo canónico `sergi-rz/claudia-os` todavía no tiene la v1 publicada. No hay nada que actualizar. Cuando se publique, vuelve a ejecutar `/claudia-update`."
 
 ### Paso 2 — Detectar cambios en el framework
 

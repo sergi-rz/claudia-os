@@ -74,6 +74,7 @@ Las skills sin marca en "Requiere" funcionan desde el primer minuto. Las demás 
 | `claudia-research` | Investigación en tres niveles (rápida, estándar, profunda). En modo profundo lanza agentes en paralelo que contrastan fuentes, buscan perspectivas contrarias y generan un informe estructurado | — |
 | `claudia-wisdom` | Extrae conocimiento accionable de cualquier URL: vídeos de YouTube, artículos, podcasts, newsletters. Detecta el formato, sintetiza y conecta automáticamente con tu base de conocimiento existente | — |
 | `claudia-thinking` | Tres modos de razonamiento: **Council** (deliberación multi-perspectiva para decisiones), **Red Team** (destruir un plan antes de ejecutarlo) y **First Principles** (reconstruir desde los axiomas) | — |
+| `claudia-critique` | Análisis crítico de textos argumentativos: evalúa solidez con el framework Paul & Elder (8 elementos + 9 estándares), detecta falacias lógicas y sesgos cognitivos. Incluye modo auto-critique para revisar tus propios borradores antes de publicar | — |
 | `claudia-intake` | Pipeline asíncrono de contenido: encola URLs desde cualquier canal, las procesa en batch y genera un briefing dual (Telegram + email) con lo más relevante | — |
 
 **Organizar tu día**
@@ -219,6 +220,7 @@ Claudia OS se inspira en la metodología de [PAI](https://github.com/danielmiess
 Otras fuentes: 
 
 - [agentic-stack](https://github.com/codejunkie99/agentic-stack) para el patrón de memoria persistente.
+- [pensamiento-critico](https://github.com/omixam/pensamiento-critico) de Maximo Gavete para el análisis crítico de textos argumentativos (skill `claudia-critique`).
 
 Ver [ATTRIBUTION.md](ATTRIBUTION.md) para detalles.
 
