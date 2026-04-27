@@ -41,7 +41,7 @@ Si el usuario pide algo que requeriría cambiar el resto de `.claude/skills/` (e
 Toda configuración de skills y del sistema vive en `user/config/settings.json`, organizada por keys descriptivas (ej: `skill_briefing`, `calendar_aliases`, `gmail_accounts`). Reglas:
 
 - **Config estática** → `settings.json`, bajo una key propia por skill o funcionalidad.
-- **Credenciales y tokens** → `user/credentials/.env` (nunca en settings.json).
+- **Credenciales y tokens** → `user/credentials/.env` (nunca en settings.json). En instalaciones VPS headless, los crons que ejecuten `claude -p` necesitan un `CLAUDE_CODE_OAUTH_TOKEN` en el `.env` (generado con `claude setup-token`). Esto es porque los crons no heredan la sesión OAuth interactiva. Este token no es necesario si se usan las tareas programadas nativas de Claude Code (`/schedule`), que gestionan la autenticación automáticamente.
 - **Estado mutable** que cambia en cada ejecución (counters, timestamps de último fetch, etc.) → fichero propio en `user/config/` (ej: `feeds.json`). No mezclar estado con config.
 - **Tareas programadas (crons)** → nunca en settings.json. Cuando una skill necesite una tarea programada, Claudia la propone conversacionalmente al usuario en lenguaje natural (ej: "¿quieres que sincronice cada 6 horas?") y, con su confirmación, la instala directamente en el crontab del sistema. No almacenes expresiones cron en ficheros de configuración — se desincronizarían con el crontab real.
 
