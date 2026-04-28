@@ -32,7 +32,7 @@ Yo lo uso para organizar mi día a día como freelance con dos hijos pequeños, 
 
 Algunos usuarios le darán más uso en temas profesionales. Otros para organización familiar o de desarrollo personal. En cualquiera de los casos, el asistente funciona bien.
 
-<video src="https://github.com/user-attachments/assets/e26ac143-3358-4b86-8520-b05235a56fad" autoplay loop muted playsinline width="700"></video>
+<video src="https://sergiruiz.b-cdn.net/demo-telegram-recordatorios-y-calendar-compressed.mp4" autoplay loop muted playsinline width="700"></video>
 
 *Un ejemplo de cómo trabaja: le pedí que me recordara un cambio en el horario habitual de piscina. Me anotó el recordatorio para 2 horas antes. Luego le pedí que me mostrase mi calendario, se dio cuenta de que el horario del evento no cuadraba con el nuevo, y me propuso cambiarlo ella misma. Una conversación, 3 skills trabajando juntas (notas, calendario y Telegram), sin abrir ninguna app.*
 
@@ -135,7 +135,7 @@ claude
 
 En cualquiera de las interfaces donde trabajes, escribe `/claudia-onboarding` en la sesión que se abre. Claudia te guía por el resto (~5-10 minutos), incluyendo cómo crear tu propio repositorio privado para guardar tu configuración si lo quieres.
 
-<video src="https://github.com/user-attachments/assets/ef986dab-0a91-467b-8389-79764f2254e1" autoplay loop muted playsinline width="700"></video>
+<video src="https://sergiruiz.b-cdn.net/demo-terminal-onboarding-compressed.mp4" autoplay loop muted playsinline width="700"></video>
 
 *Ejemplo de onboarding*
 
