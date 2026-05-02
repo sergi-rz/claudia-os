@@ -128,7 +128,7 @@ def expire_old(days=14):
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     count = 0
     for item in items:
-        if item["status"] in ("new", "feed_new"):
+        if item["status"] in ("new", "feed_new", "failed"):
             try:
                 queued = datetime.fromisoformat(item["queued_at"])
                 if queued < cutoff:

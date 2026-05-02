@@ -97,6 +97,7 @@ Las skills sin marca en "Requiere" funcionan desde el primer minuto. Las demás 
 | Skill | Qué hace | Requiere |
 |-------|----------|----------|
 | `telegram-bot` | Bot bidireccional para hablar con Claudia desde Telegram. Si activas automatizaciones, puedes recibir briefing diario de tu calendario, recordatorios de tareas... Tiene soporte para notas de voz e imágenes | Telegram Bot Token (gratuito) |
+| `vault-search` | Búsqueda en la base de conocimiento (wisdom, research) con SQLite FTS5: queries por texto, autor, tema, calidad y más | — |
 | `memory-search` | Búsqueda en memoria persistente con ranking por relevancia | — |
 | `claudia-scrape` | Extrae contenido de cualquier URL: webs, tweets, threads completos, podcasts. Usada por research y wisdom | — |
 | `claudia-yt-transcript` | Descarga subtítulos y clips de vídeos de YouTube. Usada por wisdom y corpus-sync | — |

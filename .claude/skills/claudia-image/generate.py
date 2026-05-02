@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
 """
-Genera imágenes con Google AI Studio.
+Genera imágenes con Google AI Studio y OpenAI.
 
 Uso:
   python3 generate.py "un diagrama técnico sobre microservicios" --output imagen.png
   python3 generate.py "charcoal sketch of a brain" --style charcoal --output brain.png
   python3 generate.py "blog header about AI" --style dark-diagram --size 16:9 --output header.png
-  python3 generate.py "retrato artístico" --model imagen-ultra --size 3:2 --output retrato.png
+  python3 generate.py "retrato artístico" --model openai-hd --size 3:2 --output retrato.png
 
-Modelos (--model):
-  flash         — Gemini 2.5 Flash Image — gratis, solo 1:1 (default para 1:1)
-  nano2         — Gemini 3.1 Flash Image (Nano Banana 2) — preview, solo 1:1
-  pro           — Gemini 3 Pro Image — mayor calidad, solo 1:1
-  imagen-fast   — Imagen 4 Fast — $0.02/img, soporta aspect ratios (default para no-1:1)
-  imagen        — Imagen 4 Standard — $0.04/img, soporta aspect ratios
-  imagen-ultra  — Imagen 4 Ultra — $0.06/img, máxima calidad, soporta aspect ratios
+Proveedores:
+
+  Google (GOOGLE_AI_API_KEY):
+    flash         — Gemini 2.5 Flash Image — GRATIS, solo 1:1 (default)
+    nano2         — Gemini 3.1 Flash Image — ~$0.045/img, solo 1:1
+    pro           — Gemini 3 Pro Image — ~$0.045/img, solo 1:1
+    imagen-fast   — Imagen 4 Fast — $0.02/img, aspect ratios (default para no-1:1)
+    imagen        — Imagen 4 Standard — $0.04/img, aspect ratios
+    imagen-ultra  — Imagen 4 Ultra — $0.06/img, máxima calidad, aspect ratios
+
+  OpenAI (OPENAI_API_KEY):
+    openai-low    — GPT Image 2 (low) — ~$0.006/img, aspect ratios
+    openai        — GPT Image 2 (medium) — ~$0.05/img, aspect ratios
+    openai-hd     — GPT Image 2 (high) — ~$0.21/img, máxima calidad, aspect ratios
 
 Tamaños (--size):
   1:1   — Cuadrado (default)
@@ -63,39 +70,67 @@ def load_env():
 
 load_env()
 
-API_KEY = os.environ.get("GOOGLE_AI_API_KEY")
-if not API_KEY:
+GOOGLE_API_KEY = os.environ.get("GOOGLE_AI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+if not GOOGLE_API_KEY and not OPENAI_API_KEY:
     print("=" * 60, file=sys.stderr)
     print("  Image — Configuración inicial", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
     print(file=sys.stderr)
-    print("Necesitas una API key de Google AI Studio (gratuita).", file=sys.stderr)
+    print("Necesitas al menos una API key para generar imágenes.", file=sys.stderr)
     print(file=sys.stderr)
-    print("  1. Ve a https://aistudio.google.com/apikey", file=sys.stderr)
-    print("  2. Crea una API key (botón 'Create API key')", file=sys.stderr)
-    print("  3. Guárdala en el fichero:", file=sys.stderr)
-    print(f"     {ENV_FILE}", file=sys.stderr)
+    print("  Opción 1 — Google AI Studio (recomendado, tiene tier gratuito):", file=sys.stderr)
+    print("    1. Ve a https://aistudio.google.com/apikey", file=sys.stderr)
+    print("    2. Crea una API key", file=sys.stderr)
+    print(f"    3. Añade a {ENV_FILE}:", file=sys.stderr)
+    print("       GOOGLE_AI_API_KEY=tu_key", file=sys.stderr)
     print(file=sys.stderr)
-    print("  Contenido del fichero (una sola línea):", file=sys.stderr)
-    print("  GOOGLE_AI_API_KEY=tu_api_key_aqui", file=sys.stderr)
+    print("  Opción 2 — OpenAI:", file=sys.stderr)
+    print("    1. Ve a https://platform.openai.com/api-keys", file=sys.stderr)
+    print("    2. Crea una API key", file=sys.stderr)
+    print(f"    3. Añade a {ENV_FILE}:", file=sys.stderr)
+    print("       OPENAI_API_KEY=tu_key", file=sys.stderr)
     print(file=sys.stderr)
-    print("El modelo 'flash' es gratuito. Los modelos Imagen 4", file=sys.stderr)
-    print("cuestan entre $0.02 y $0.06 por imagen.", file=sys.stderr)
+    print("  AVISO DE COSTES:", file=sys.stderr)
+    print("  El modelo 'flash' de Google es gratuito (solo imágenes 1:1).", file=sys.stderr)
+    print("  El resto de modelos tienen coste por imagen:", file=sys.stderr)
+    print("    Google Imagen 4:    $0.02 — $0.06 / imagen", file=sys.stderr)
+    print("    Google Gemini Pro:  ~$0.045 / imagen", file=sys.stderr)
+    print("    OpenAI GPT Image 2: $0.05 — $0.21 / imagen", file=sys.stderr)
+    print(file=sys.stderr)
+    print("  Recomendamos configurar un límite de gasto mensual:", file=sys.stderr)
+    print("    Google → https://aistudio.google.com (Settings > Billing)", file=sys.stderr)
+    print("    OpenAI → https://platform.openai.com/settings/organization/limits", file=sys.stderr)
     sys.exit(1)
 
 # Modelos disponibles
 MODELS = {
-    # Gemini (generateContent) — solo 1:1, 1024x1024
-    "flash":        {"id": "gemini-2.5-flash-image",            "type": "gemini", "price": "gratis"},
-    "nano2":        {"id": "gemini-3.1-flash-image-preview",    "type": "gemini", "price": "~$0.045/img"},
-    "pro":          {"id": "gemini-3-pro-image-preview",        "type": "gemini", "price": "~$0.045/img"},
-    # Imagen 4 (predict) — soporta aspect ratios
-    "imagen-fast":  {"id": "imagen-4.0-fast-generate-001",      "type": "imagen", "price": "$0.02/img"},
-    "imagen":       {"id": "imagen-4.0-generate-001",           "type": "imagen", "price": "$0.04/img"},
-    "imagen-ultra": {"id": "imagen-4.0-ultra-generate-001",     "type": "imagen", "price": "$0.06/img"},
+    # Google: Gemini (generateContent) — solo 1:1, 1024x1024
+    "flash":        {"id": "gemini-2.5-flash-image",         "type": "gemini", "provider": "google", "price": "gratis"},
+    "nano2":        {"id": "gemini-3.1-flash-image-preview",  "type": "gemini", "provider": "google", "price": "~$0.045/img"},
+    "pro":          {"id": "gemini-3-pro-image-preview",      "type": "gemini", "provider": "google", "price": "~$0.045/img"},
+    # Google: Imagen 4 (predict) — soporta aspect ratios
+    "imagen-fast":  {"id": "imagen-4.0-fast-generate-001",    "type": "imagen", "provider": "google", "price": "$0.02/img"},
+    "imagen":       {"id": "imagen-4.0-generate-001",         "type": "imagen", "provider": "google", "price": "$0.04/img"},
+    "imagen-ultra": {"id": "imagen-4.0-ultra-generate-001",   "type": "imagen", "provider": "google", "price": "$0.06/img"},
+    # OpenAI: GPT Image 2
+    "openai-low":   {"id": "gpt-image-2", "type": "openai", "provider": "openai", "price": "~$0.006/img", "quality": "low"},
+    "openai":       {"id": "gpt-image-2", "type": "openai", "provider": "openai", "price": "~$0.05/img",  "quality": "medium"},
+    "openai-hd":    {"id": "gpt-image-2", "type": "openai", "provider": "openai", "price": "~$0.21/img",  "quality": "high"},
 }
 
 ASPECT_RATIOS = ["1:1", "16:9", "3:2", "4:3", "3:4", "2:3", "9:16"]
+
+OPENAI_SIZES = {
+    "1:1":  "1024x1024",
+    "16:9": "1536x864",
+    "3:2":  "1536x1024",
+    "4:3":  "1024x768",
+    "3:4":  "768x1024",
+    "2:3":  "1024x1536",
+    "9:16": "864x1536",
+}
 
 STYLES = {
     "dark-diagram": (
@@ -157,12 +192,12 @@ if USER_STYLES_FILE.exists():
         print(f"Aviso: error cargando user/styles.json: {e}", file=sys.stderr)
 
 
-def generate_gemini(model_id: str, prompt: str) -> bytes:
-    """Genera imagen con un modelo Gemini (1024x1024)."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={API_KEY}"
+def generate_gemini(model_id: str, prompt: str, aspect_ratio: str = "1:1") -> bytes:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={GOOGLE_API_KEY}"
+    gen_config = {"responseModalities": ["TEXT", "IMAGE"]}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+        "generationConfig": gen_config,
     }
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                 headers={"Content-Type": "application/json"}, method="POST")
@@ -180,8 +215,7 @@ def generate_gemini(model_id: str, prompt: str) -> bytes:
 
 
 def generate_imagen(model_id: str, prompt: str, aspect_ratio: str) -> bytes:
-    """Genera imagen con un modelo Imagen 4 (soporta aspect ratios)."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:predict?key={API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:predict?key={GOOGLE_API_KEY}"
     payload = {
         "instances": [{"prompt": prompt}],
         "parameters": {"aspectRatio": aspect_ratio, "sampleCount": 1},
@@ -198,8 +232,38 @@ def generate_imagen(model_id: str, prompt: str, aspect_ratio: str) -> bytes:
     raise RuntimeError(f"No se recibió imagen de {model_id}")
 
 
+def generate_openai(model_id: str, prompt: str, aspect_ratio: str, quality: str = "medium") -> bytes:
+    if not OPENAI_API_KEY:
+        print("Error: OPENAI_API_KEY no configurada.", file=sys.stderr)
+        print(f"Añade OPENAI_API_KEY=tu_key a {ENV_FILE}", file=sys.stderr)
+        sys.exit(1)
+
+    url = "https://api.openai.com/v1/images/generations"
+    size = OPENAI_SIZES.get(aspect_ratio, "1024x1024")
+    payload = {
+        "model": model_id,
+        "prompt": prompt,
+        "n": 1,
+        "size": size,
+        "quality": quality,
+        "output_format": "png",
+    }
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                headers={
+                                    "Content-Type": "application/json",
+                                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                                }, method="POST")
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        data = json.loads(resp.read())
+
+    items = data.get("data", [])
+    if items and "b64_json" in items[0]:
+        return base64.b64decode(items[0]["b64_json"])
+
+    raise RuntimeError(f"No se recibió imagen de {model_id}")
+
+
 def resolve_model(model_arg: str | None, size: str) -> dict:
-    """Elige modelo: el explícito si se pasa, o auto según el aspect ratio."""
     if model_arg:
         if model_arg not in MODELS:
             print(f"Error: modelo '{model_arg}' no reconocido. Opciones: {', '.join(MODELS.keys())}", file=sys.stderr)
@@ -207,14 +271,21 @@ def resolve_model(model_arg: str | None, size: str) -> dict:
         model = MODELS[model_arg]
         if model["type"] == "gemini" and size != "1:1":
             print(f"Aviso: {model_arg} solo genera 1:1 (1024x1024). Ignorando --size {size}.", file=sys.stderr)
+        if model["provider"] == "google" and not GOOGLE_API_KEY:
+            print(f"Error: {model_arg} requiere GOOGLE_AI_API_KEY.", file=sys.stderr)
+            sys.exit(1)
+        if model["provider"] == "openai" and not OPENAI_API_KEY:
+            print(f"Error: {model_arg} requiere OPENAI_API_KEY.", file=sys.stderr)
+            sys.exit(1)
         return model
-    # Auto: Nano Banana 2 para 1:1, Imagen 4 Fast para el resto (aspect ratios)
-    return MODELS["nano2"] if size == "1:1" else MODELS["imagen-fast"]
+    # Auto: modelo gratuito (flash) para 1:1, imagen-fast para otros ratios
+    if GOOGLE_API_KEY:
+        return MODELS["flash"] if size == "1:1" else MODELS["imagen-fast"]
+    return MODELS["openai-low"]
 
 
 def generate_image(prompt: str, style: str | None = None, model_arg: str | None = None,
                    size: str = "1:1", output: str = "output.png") -> str:
-    """Genera una imagen y la guarda en disco."""
 
     full_prompt = STYLES[style] + prompt if style and style in STYLES else prompt
     model = resolve_model(model_arg, size)
@@ -222,9 +293,13 @@ def generate_image(prompt: str, style: str | None = None, model_arg: str | None 
 
     try:
         if model["type"] == "gemini":
-            img_data = generate_gemini(model_id, full_prompt)
-        else:
+            img_data = generate_gemini(model_id, full_prompt, size)
+        elif model["type"] == "imagen":
             img_data = generate_imagen(model_id, full_prompt, size)
+        elif model["type"] == "openai":
+            img_data = generate_openai(model_id, full_prompt, size, model.get("quality", "medium"))
+        else:
+            raise RuntimeError(f"Tipo de modelo desconocido: {model['type']}")
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         print(f"Error API ({e.code}): {body}", file=sys.stderr)
@@ -242,7 +317,7 @@ def generate_image(prompt: str, style: str | None = None, model_arg: str | None 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Genera imágenes con Google AI Studio",
+        description="Genera imágenes con Google AI Studio y OpenAI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("prompt", help="Descripción de la imagen a generar")

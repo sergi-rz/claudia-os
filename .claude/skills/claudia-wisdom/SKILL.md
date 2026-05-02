@@ -102,9 +102,8 @@ Igual que en modo normal.
 
 Busca conexiones con lo que ya sabemos:
 
-1. **Lee el índice del vault** — `user/vault/wisdom/INDEX.md`
-2. **Busca wisdom previo relacionado** — Grep en `user/vault/wisdom/` por temas o conceptos que coincidan
-3. **Busca research relacionado** — Grep en `user/vault/research/` por temas afines
+1. **Busca en el vault con vault-search** — `python3 .claude/skills/vault-search/vault_search.py --context "<topics relevantes>" --max-tokens 1500`
+2. **Si necesitas más detalle**, busca por texto: `python3 .claude/skills/vault-search/vault_search.py "concepto específico"`
 
 Si encuentras conexiones:
 - Menciona qué wisdom o research previo se relaciona y cómo
@@ -196,25 +195,15 @@ Si usas esta skill fuera de Claudia OS, guarda en `./wisdom/` en el directorio d
 
 Ejemplo: `2026-04-11_gary-marcus-biggest-advance-ai-llm.md`
 
-### Actualizar INDEX.md
+### Indexar el fichero nuevo
 
-Después de guardar, actualiza `user/vault/wisdom/INDEX.md`.
+Después de guardar, reindexar para que el vault-search lo encuentre:
 
-**Formato del INDEX.md:**
-
-```markdown
-# Wisdom Index
-
-## Por tema
-
-### {Tema}
-- [{Título}]({fichero}) — {takeaway en 1 frase} ({fecha})
-
-## Recientes
-- {YYYY-MM-DD} [{Título}]({fichero}) — {tipo} — {topics}
+```bash
+python3 .claude/skills/vault-search/vault_search.py --reindex-file "wisdom/{filename}.md"
 ```
 
-Añade la nueva entrada en la sección de tema correspondiente (créala si no existe) y en Recientes.
+Esto actualiza automáticamente el índice SQLite. Ya no es necesario editar INDEX.md a mano.
 
 ---
 
@@ -225,7 +214,7 @@ Añade la nueva entrada en la sección de tema correspondiente (créala si no ex
 3. **No inventes conexiones.** Solo conecta con conocimiento previo si la relación es real y útil.
 4. **Citas textuales deben ser exactas.** Si no puedes garantizar la cita exacta (ej: subtítulos automáticos), indica que es aproximada.
 5. **Topics deben ser reutilizables.** Consulta la taxonomía en `user/vault/CLAUDE.md` antes de crear un topic nuevo.
-6. **Verifica duplicados.** Antes de crear un fichero nuevo, comprueba `user/vault/wisdom/INDEX.md` para asegurarte de que esa fuente no está ya extraída.
+6. **Verifica duplicados.** Antes de crear un fichero nuevo, busca en el vault: `python3 .claude/skills/vault-search/vault_search.py "<título o URL>"` para asegurarte de que esa fuente no está ya extraída.
 7. **Antes de guardar ficheros**, haz `git pull` en ``.
 8. **Escribe en el idioma** definido en `user/config/settings.json` (`language`), salvo citas textuales en su idioma original.
 9. **Intake siempre usa modo normal.** El modo deep es para extracciones manuales donde hay interés explícito en profundidad.

@@ -141,12 +141,12 @@ Eres Claudia ejecutando una investigación. Analiza los argumentos para determin
    - Tendencias identificadas
    - Gaps y oportunidades
    - Recomendaciones para el usuario
-3. Genera `INDEX.md` como hub de navegación del vault, incluyendo referencias a wisdom relacionado en `user/vault/claudia-wisdom/`
+3. Reindexar vault-search: `python3 .claude/skills/vault-search/vault_search.py --rebuild`
 
 **Estructura del vault:**
 ```
 user/vault/claudia-research/{fecha}_{tema}/
-├── INDEX.md          — navegación, estado de cobertura y wisdom relacionado
+├── INDEX.md          — navegación interna del deep research
 ├── LANDSCAPE.md      — panorama general del dominio
 ├── ENTITIES.md       — catálogo con scoring y estado
 ├── SUMMARY.md        — síntesis final con recomendaciones
@@ -172,7 +172,7 @@ Por defecto, todo research va a `user/vault/claudia-research/`. Excepción: **si
 - Vault: `user/vault/claudia-research/{tema-slug}.md` (standard) o `user/vault/claudia-research/{fecha}_{tema-slug}/` (deep)
 - Workspace: `user/workspaces/{ws}/claudia-research/{tema-slug}.md` o `user/workspaces/{ws}/claudia-research/{fecha}_{tema-slug}/`
 
-**Cuando va al workspace:** añade una línea stub en `user/vault/claudia-research/INDEX.md` apuntando al workspace, para que la búsqueda transversal no pierda el rastro.
+**Cuando va al workspace:** vault-search lo indexa igualmente si está bajo `user/vault/` o `user/workspaces/`. Para búsqueda transversal no hace falta stub manual.
 
 ---
 
@@ -183,4 +183,4 @@ Por defecto, todo research va a `user/vault/claudia-research/`. Excepción: **si
 3. **No alucines datos.** Si no encuentras algo, dilo. Mejor un hueco que una invención.
 4. **Escribe en el idioma** definido en `user/config/settings.json` (`language`) salvo que el tema requiera otro (ej: documentación técnica en inglés).
 5. **Antes de guardar ficheros**, haz `git pull` en ``.
-6. **Consulta `user/vault/claudia-wisdom/INDEX.md`** al inicio de standard y deep para ver si ya existe conocimiento previo sobre el tema que pueda orientar la investigación.
+6. **Consulta el vault** al inicio de standard y deep: `python3 .claude/skills/vault-search/vault_search.py --context "<tema>" --max-tokens 2000` para ver si ya existe conocimiento previo que pueda orientar la investigación.

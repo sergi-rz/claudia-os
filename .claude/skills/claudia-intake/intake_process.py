@@ -21,7 +21,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 VAULT_WISDOM = REPO_ROOT / "user" / "vault" / "wisdom"
-INDEX_PATH = VAULT_WISDOM / "INDEX.md"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from intake_queue import get_items, update_status, get_stats, _now_iso
@@ -290,36 +289,6 @@ def _save_wisdom_file(item_id, wisdom, extraction, today):
     return filename
 
 
-def _update_index(wisdoms, today):
-    """Actualiza INDEX.md con las nuevas entradas."""
-    if not INDEX_PATH.exists():
-        INDEX_PATH.write_text("# Wisdom Index\n\n## Recientes\n\n")
-
-    index_content = INDEX_PATH.read_text()
-
-    new_entries = []
-    for filename, wisdom in wisdoms.items():
-        title = wisdom.get("title", "Sin titulo")
-        takeaway = wisdom.get("takeaway", "")
-        content_type = wisdom.get("content_type", "article")
-        topics = ", ".join(wisdom.get("topics", []))
-        entry = f"- {today} [{title}]({filename}) — {content_type} — {topics}"
-        new_entries.append(entry)
-
-    if new_entries:
-        # Añadir bajo ## Recientes
-        if "## Recientes" in index_content:
-            insert_point = index_content.index("## Recientes") + len("## Recientes")
-            # Buscar el siguiente newline
-            next_nl = index_content.index("\n", insert_point)
-            new_block = "\n" + "\n".join(new_entries)
-            index_content = index_content[:next_nl] + new_block + index_content[next_nl:]
-        else:
-            index_content += "\n## Recientes\n" + "\n".join(new_entries) + "\n"
-
-        INDEX_PATH.write_text(index_content)
-        print(f"  INDEX.md actualizado con {len(new_entries)} entradas")
-
 
 def process_queue(max_items=None, dry_run=False):
     """Procesa items 'new' de la cola."""
@@ -371,10 +340,10 @@ def process_queue(max_items=None, dry_run=False):
             else:
                 error = result.get("error", "No se pudo extraer contenido")
                 print(f"  [FAIL] {error[:100]}")
-                update_status(item["id"], "failed", error=error)
+                update_status(item["id"], "failed", error=error, failed_at=_now_iso())
         except Exception as e:
             print(f"  [FAIL] {e}")
-            update_status(item["id"], "failed", error=str(e)[:200])
+            update_status(item["id"], "failed", error=str(e)[:200], failed_at=_now_iso())
 
     if not extractions:
         print("\nNo se pudo extraer contenido de ningun item.")
@@ -403,11 +372,11 @@ def process_queue(max_items=None, dry_run=False):
         except subprocess.TimeoutExpired:
             print("  [ERROR] Claude timeout (5 min)")
             for item_id in batch_ids:
-                update_status(item_id, "failed", error="Claude timeout")
+                update_status(item_id, "failed", error="Claude timeout", failed_at=_now_iso())
         except Exception as e:
             print(f"  [ERROR] Claude: {e}")
             for item_id in batch_ids:
-                update_status(item_id, "failed", error=str(e)[:200])
+                update_status(item_id, "failed", error=str(e)[:200], failed_at=_now_iso())
 
     if not all_wisdoms:
         print("\nNo se pudo generar wisdom de ningun item.")
@@ -450,11 +419,20 @@ def process_queue(max_items=None, dry_run=False):
             })
         except Exception as e:
             print(f"  [ERROR] Saving {item_id}: {e}")
-            update_status(item_id, "failed", error=str(e)[:200])
+            update_status(item_id, "failed", error=str(e)[:200], failed_at=_now_iso())
 
-    # Phase 4: Update INDEX.md
+    # Phase 4: Reindex vault search
     if saved_files:
-        _update_index(saved_files, today)
+        try:
+            vault_search = REPO_ROOT / ".claude/skills/vault-search/vault_search.py"
+            for filename in saved_files:
+                subprocess.run(
+                    ["python3", str(vault_search), "--reindex-file", f"wisdom/{filename}"],
+                    cwd=str(REPO_ROOT), capture_output=True, timeout=10,
+                )
+            print(f"  Vault search reindexed: {len(saved_files)} files")
+        except Exception as e:
+            print(f"  [WARN] Vault reindex failed: {e}")
 
     # Phase 5: Git commit
     if saved_files:

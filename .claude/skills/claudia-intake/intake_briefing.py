@@ -149,11 +149,22 @@ def _parse_wisdom_file(content):
     return result
 
 
-def _get_persistent_failures():
-    """Devuelve items fallidos con errores no transitorios."""
+def _get_persistent_failures(hours=48):
+    """Devuelve items fallidos con errores no transitorios y recientes."""
     from intake_process import _is_transient_error
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     failed = get_items(status="failed")
-    return [i for i in failed if not _is_transient_error(i.get("error"))]
+    recent = []
+    for item in failed:
+        if _is_transient_error(item.get("error")):
+            continue
+        try:
+            ts = item.get("failed_at") or item.get("queued_at")
+            if ts and datetime.fromisoformat(ts) > cutoff:
+                recent.append(item)
+        except (ValueError, TypeError):
+            continue
+    return recent
 
 
 def build_telegram_message(processed, feed_indexed, stats, failed=None):

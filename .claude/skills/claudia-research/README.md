@@ -77,7 +77,7 @@ Cuatro fases:
 
 ```
 user/vault/claudia-research/{fecha}_{tema}/
-├── INDEX.md          — navegacion y estado de cobertura
+├── INDEX.md          — navegacion interna del deep research
 ├── LANDSCAPE.md      — panorama general del dominio
 ├── ENTITIES.md       — catalogo con scoring y estado
 ├── SUMMARY.md        — sintesis final con recomendaciones
@@ -129,5 +129,5 @@ Las instrucciones de `user/behavior.md` tienen preferencia en caso de conflicto 
 
 - **Los agentes no se lanzan en paralelo**: verificar que la tool `Agent` esta disponible en la sesion
 - **URLs rotas en el output**: standard y deep verifican URLs antes de guardar, pero las fuentes pueden caer despues. Re-ejecutar el research actualiza los enlaces
-- **Research se guarda en vault pero era para un workspace**: mover manualmente el fichero y actualizar el stub en `user/vault/claudia-research/INDEX.md`
+- **Research se guarda en vault pero era para un workspace**: mover manualmente el fichero. vault-search lo reindexara automaticamente en la siguiente busqueda
 - **Deep research tarda mucho**: es normal — lanza multiples agentes en varias fases. Para temas acotados, usar standard

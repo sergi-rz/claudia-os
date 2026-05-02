@@ -12,7 +12,7 @@ claudia-os/
 │   ├── context/       ← identidad, restricciones
 │   ├── credentials/   ← .env, OAuth tokens
 │   ├── memory/        ← memorias persistentes
-│   ├── vault/         ← base de conocimiento (claudia-wisdom, claudia-research)
+│   ├── vault/         ← base de conocimiento (wisdom, research). Índice SQLite en .index/ (gitignored, regenerable)
 │   ├── workspaces/    ← proyectos y áreas de trabajo
 │   └── images/        ← output por defecto de imágenes
 └── CLAUDE.md          ← router (carga core/ y user/context/)

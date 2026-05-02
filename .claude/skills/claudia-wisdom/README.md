@@ -81,7 +81,7 @@ Si encuentra conexiones reales, las incluye. Si no, no inventa.
 | Que | Donde |
 |-----|-------|
 | Ficheros de wisdom | `user/vault/wisdom/{YYYY-MM-DD}_{slug}.md` |
-| Indice de wisdom | `user/vault/wisdom/INDEX.md` |
+| Busqueda e indice | SQLite FTS5 via `vault-search` (auto-generado en `user/vault/.index/`) |
 | Taxonomia de topics | `user/vault/CLAUDE.md` |
 
 ### Naming de ficheros
@@ -111,9 +111,9 @@ origin: user | research/nombre-del-fichero.md
 
 Seguido del contenido estructurado (ideas, insights, citas, conceptos, acciones, conexiones).
 
-### INDEX.md
+### Indexación
 
-Cada nuevo wisdom se registra en `user/vault/wisdom/INDEX.md`, organizado por tema y con una seccion de recientes.
+Cada nuevo wisdom se indexa automáticamente en la base de datos SQLite via `vault-search`. No hay INDEX.md global — la búsqueda y navegación se hace con queries a vault-search.
 
 ## Requisitos
 
@@ -154,6 +154,6 @@ Las instrucciones de `user/behavior.md` tienen preferencia en caso de conflicto 
 
 - **No puede extraer contenido (paywall, contenido dinamico)**: Claudia te avisa y sugiere pegar el texto manualmente
 - **Citas no son exactas**: si la fuente son subtitulos automaticos de YouTube, Claudia indica que las citas son aproximadas
-- **Duplicado detectado**: antes de crear un fichero, se comprueba INDEX.md. Si la fuente ya fue extraida, avisa en lugar de duplicar
+- **Duplicado detectado**: antes de crear un fichero, se consulta vault-search. Si la fuente ya fue extraida, avisa en lugar de duplicar
 - **Topic nuevo no aparece en taxonomia**: consultar `user/vault/CLAUDE.md` y anadir el topic si es reutilizable, o usar uno existente
 - **Calidad marcada como baja**: es intencionado. Si el contenido no aporta nada nuevo, Claudia lo dice honestamente. Mejor un wisdom marcado como baja calidad que inflar todo

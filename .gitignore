@@ -1,5 +1,6 @@
-# Memory index (derivado de los .md, reconstruible)
+# Derived indexes (reconstruibles desde los .md)
 user/memory/.index/
+user/vault/.index/
 
 # Episodic snapshots (archivados por dream cycle, pueden crecer)
 user/memory/episodes/snapshots/
