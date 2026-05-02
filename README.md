@@ -4,6 +4,10 @@ Me llamo Sergi y esto es un sistema que he montado para convertir Claude Code en
 
 Llevo meses usándolo a diario y funciona. Así que lo he empaquetado para que cualquiera pueda instalarlo, hacer un onboarding de 10 minutos y tener su propia Claudia adaptada a su vida.
 
+<p align="center">
+  <img src="docs/images/claudia-os-architecture-v2.png" alt="Arquitectura de Claudia OS" width="800">
+</p>
+
 [Primeros pasos](#primeros-pasos)
 
 ---
@@ -45,10 +49,6 @@ https://github.com/user-attachments/assets/de050d3e-4f21-4ac0-8438-1eb29ea13ff7
 Claude Code es potente, pero es una herramienta genérica: no sabe quién eres, no recuerda lo que hicisteis juntos ayer, y cada capacidad nueva la tienes que construir tú.
 
 Claudia OS le da la estructura para pasar de herramienta a asistente:
-
-<p align="center">
-  <img src="docs/images/readme-architecture.png" alt="Arquitectura de Claudia OS" width="700">
-</p>
 
 - **Memoria que persiste de verdad.** No un historial de chat ni un resumen automático. Es un sistema de memorias clasificadas por importancia, con aprendizaje episódico y un ciclo nocturno que detecta patrones recurrentes y los promueve a lecciones permanentes. Sincronizable entre dispositivos vía git.
 
@@ -221,7 +221,7 @@ Claudia OS se inspira en la metodología de [PAI](https://github.com/danielmiess
 Otras fuentes: 
 
 - [agentic-stack](https://github.com/codejunkie99/agentic-stack) para el patrón de memoria persistente.
-- [pensamiento-critico](https://github.com/omixam/pensamiento-critico) de Maximo Gavete para el análisis crítico de textos argumentativos (skill `claudia-critique`).
+- [pensamiento-critico](https://github.com/omixam/pensamiento-critico) de Máximo Gavete para el análisis crítico de textos argumentativos (skill `claudia-critique`).
 
 Ver [ATTRIBUTION.md](ATTRIBUTION.md) para detalles.
 

@@ -45,7 +45,7 @@ Los ficheros incluyen el aviso de copyright de Avid en su cabecera.
 ## pensamiento-critico
 
 **Repositorio:** https://github.com/omixam/pensamiento-critico  
-**Autor:** Maximo Gavete (@omixam)  
+**Autor:** Máximo Gavete (@omixam)  
 **Licencia:** MIT License
 
 **Qué se tomó prestado:**
