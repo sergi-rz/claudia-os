@@ -5,6 +5,14 @@ Me llamo Sergi y esto es un sistema que he montado para convertir Claude Code en
 Llevo meses usándolo a diario y funciona. Así que lo he empaquetado para que cualquiera pueda instalarlo, hacer un onboarding de 10 minutos y tener su propia Claudia adaptada a su vida.
 
 <p align="center">
+  <a href="https://www.youtube.com/watch?v=7fCdb1PG5Pw">
+    <img src="https://img.youtube.com/vi/7fCdb1PG5Pw/maxresdefault.jpg" alt="Mi experiencia tras 2 meses con un asistente personal de IA" width="800">
+  </a>
+  <br>
+  <em>▶ Mi experiencia tras 2 meses con un asistente personal de IA (22 min)</em>
+</p>
+
+<p align="center">
   <img src="docs/images/claudia-os-architecture-v2.png" alt="Arquitectura de Claudia OS" width="800">
 </p>
 
