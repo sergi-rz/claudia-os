@@ -2,6 +2,9 @@
 user/memory/.index/
 user/vault/.index/
 
+# Datos derivados de APIs (reconstruibles con sync)
+user/data/
+
 # Episodic snapshots (archivados por dream cycle, pueden crecer)
 user/memory/episodes/snapshots/
 
@@ -38,6 +41,7 @@ user/credentials/*
 
 # Python venvs
 **/venv/
+**/*-venv/
 
 # Animaciones generadas (Remotion out/) — cualquier workspace
 user/workspaces/*/yt/animations/out/
