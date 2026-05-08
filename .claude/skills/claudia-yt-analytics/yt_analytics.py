@@ -35,6 +35,7 @@ SETTINGS_FILE = os.path.join(CLAUDIA_ROOT, 'user', 'config', 'settings.json')
 SCOPES = [
     'https://www.googleapis.com/auth/youtube.readonly',
     'https://www.googleapis.com/auth/yt-analytics.readonly',
+    'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
 ]
 
 sys.path.insert(0, SCRIPT_DIR)
@@ -213,9 +214,9 @@ def action_sync(args, settings):
                 conn.execute("""
                     INSERT OR REPLACE INTO channel_metrics
                     (date, views, watch_time_minutes, subscribers_gained,
-                     subscribers_lost, updated_at)
+                     subscribers_lost, estimated_revenue, updated_at)
                     VALUES (:date, :views, :watch_time_minutes, :subscribers_gained,
-                            :subscribers_lost, :updated_at)
+                            :subscribers_lost, :estimated_revenue, :updated_at)
                 """, m)
             print(f"[sync] Stored {len(ch_metrics)} channel metric rows")
 
@@ -280,12 +281,12 @@ def action_overview(args, settings):
     last_7d = (datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%d')
 
     stats_30d = conn.execute("""
-        SELECT SUM(views), SUM(watch_time_minutes), SUM(subscribers_gained), SUM(subscribers_lost)
+        SELECT SUM(views), SUM(watch_time_minutes), SUM(subscribers_gained), SUM(subscribers_lost), SUM(estimated_revenue)
         FROM channel_metrics WHERE date >= ?
     """, (last_30d,)).fetchone()
 
     stats_7d = conn.execute("""
-        SELECT SUM(views), SUM(watch_time_minutes), SUM(subscribers_gained), SUM(subscribers_lost)
+        SELECT SUM(views), SUM(watch_time_minutes), SUM(subscribers_gained), SUM(subscribers_lost), SUM(estimated_revenue)
         FROM channel_metrics WHERE date >= ?
     """, (last_7d,)).fetchone()
 
@@ -307,6 +308,7 @@ def action_overview(args, settings):
             'subscribers_gained': stats_30d[2] or 0,
             'subscribers_lost': stats_30d[3] or 0,
             'net_subscribers': (stats_30d[2] or 0) - (stats_30d[3] or 0),
+            'estimated_revenue': round(stats_30d[4] or 0, 2),
         },
         'last_7_days': {
             'views': stats_7d[0] or 0,
@@ -314,6 +316,7 @@ def action_overview(args, settings):
             'subscribers_gained': stats_7d[2] or 0,
             'subscribers_lost': stats_7d[3] or 0,
             'net_subscribers': (stats_7d[2] or 0) - (stats_7d[3] or 0),
+            'estimated_revenue': round(stats_7d[4] or 0, 2),
         },
         'last_sync': {
             'completed_at': last_sync['completed_at'] if last_sync else None,

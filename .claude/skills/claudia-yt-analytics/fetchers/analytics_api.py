@@ -10,7 +10,8 @@ METRICS_FIELDS = (
 
 CHANNEL_METRICS_FIELDS = (
     'views,estimatedMinutesWatched,'
-    'subscribersGained,subscribersLost'
+    'subscribersGained,subscribersLost,'
+    'estimatedRevenue'
 )
 
 
@@ -96,6 +97,7 @@ def fetch_channel_metrics(analytics, channel_id, start_date, end_date=None):
             'watch_time_minutes': row[2],
             'subscribers_gained': row[3],
             'subscribers_lost': row[4],
+            'estimated_revenue': row[5] if len(row) > 5 else 0,
             'updated_at': now,
         })
 
