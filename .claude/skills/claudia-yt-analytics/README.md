@@ -5,7 +5,8 @@ Conecta con YouTube Data API + Analytics API para extraer métricas del canal y 
 ## Qué hace
 
 - Descarga metadata de vídeos (título, descripción, tags, duración, fecha)
-- Descarga analíticas (vistas, watch time, CTR, retención media, fuentes de tráfico, demografía, suscriptores ganados/perdidos)
+- Descarga analíticas (vistas, watch time, retención media, fuentes de tráfico, demografía, suscriptores ganados/perdidos)
+- Descarga los informes diarios de la Reporting API: impresiones y CTR de miniaturas, y actividad por país y suscrito/no suscrito
 - Almacena todo en SQLite local (regenerable, no necesita backup)
 - Claude analiza patrones, genera informes y sugiere ideas de contenido
 - Opcionalmente cruza métricas con transcripciones del corpus para análisis más profundo
@@ -29,7 +30,7 @@ pip install google-auth google-auth-oauthlib google-api-python-client isodate
 **Si ya tienes uno (p.ej. para claudia-gmail):**
 1. Ve a https://console.cloud.google.com/apis/library
 2. Habilita **YouTube Data API v3**
-3. Habilita **YouTube Analytics API**
+3. Habilita **YouTube Analytics API** y **YouTube Reporting API** (asegúrate de que el proyecto seleccionado es el del credentials.json)
 4. Copia tu credentials.json:
    ```bash
    mkdir -p user/credentials/youtube
@@ -42,6 +43,7 @@ pip install google-auth google-auth-oauthlib google-api-python-client isodate
 3. Ve a **APIs & Services > Library** y habilita:
    - YouTube Data API v3
    - YouTube Analytics API
+   - YouTube Reporting API
 4. Ve a **APIs & Services > OAuth consent screen**:
    - User Type: External
    - Añade scopes: `youtube.readonly`, `yt-analytics.readonly`
@@ -129,7 +131,7 @@ El sync vincula automáticamente las transcripciones con los datos de analítica
 
 ## Personalización
 
-Edita `.claude/skills/claudia-yt-analytics/user/behavior.md` para ajustar el comportamiento de los informes y análisis.
+Crea (o edita) `.claude/skills/claudia-yt-analytics/user/behavior.md` para ajustar el comportamiento de los informes y análisis.
 
 ## Troubleshooting
 
@@ -138,6 +140,10 @@ Edita `.claude/skills/claudia-yt-analytics/user/behavior.md` para ajustar el com
 **"Token expirado"**: El token se auto-refresca. Si falla, re-autoriza con `auth.py`.
 
 **Datos vacíos en analytics**: YouTube Analytics API tiene un desfase de ~48h. Los datos del día actual y ayer no están disponibles. Canales muy pequeños pueden no tener datos demográficos o de tráfico.
+
+**Impresiones y CTR a 0**: vienen de la Reporting API. Ejecuta `--action reporting-sync`; si acaba de crear el trabajo, el primer informe tarda hasta 48 h.
+
+**403 SERVICE_DISABLED en youtubereporting**: la Reporting API está habilitada en otro proyecto de Cloud. El número de proyecto del error es el prefijo del `client_id`.
 
 **Cuota API**: YouTube Data API tiene 10.000 unidades/día. Un sync completo de 100 vídeos gasta ~10 unidades. YouTube Analytics API tiene cuota separada y más generosa.
 

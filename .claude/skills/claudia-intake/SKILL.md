@@ -10,7 +10,7 @@ argument-hint: "<url> | digest | digest feeds | status | feeds | add-feed <url>"
 
 Sistema de captura asíncrona y procesamiento batch de contenido externo. El usuario envía URLs por cualquier canal; el sistema las procesa en batch, extrae wisdom y envía un briefing dual (Telegram + email).
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 ## Modelo de dos velocidades
 

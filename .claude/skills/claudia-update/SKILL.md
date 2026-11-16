@@ -54,6 +54,19 @@ Branch:  main
    git fetch upstream
    ```
 
+### Paso 1b — Usar las instrucciones de la versión nueva
+
+Este fichero puede haber cambiado en upstream, y un fallo de esta misma skill solo se arregla si
+el update sigue ya la versión corregida. Compara:
+```
+git diff --quiet upstream/main -- .claude/skills/claudia-update/SKILL.md
+```
+
+- **Sin diferencias:** sigue con este fichero.
+- **Con diferencias:** lee la versión de upstream (`git show upstream/main:.claude/skills/claudia-update/SKILL.md`)
+  y ejecuta el resto del update siguiendo esas instrucciones, desde su Paso 2. No escribas nada en
+  disco en este paso: el fichero se actualiza con el resto de skills, en el Paso 6.
+
 ### Paso 2 — Detectar cambios en el framework
 
 Ejecuta:
@@ -67,8 +80,11 @@ Si no hay cambios: _"Tu instalación ya está al día con el framework."_ Para.
 
 Ejecuta:
 ```
-git status --porcelain -- core/ CLAUDE.md scripts/
+git status --porcelain -- core/ CLAUDE.md scripts/ .claude/skills/ ":(exclude).claude/skills/*/user/*"
 ```
+
+Si el shell no soporta la sintaxis `:(exclude)`, quita esa parte y descarta a mano de la lista
+las rutas que contengan `/user/`.
 
 Si hay ficheros del framework con cambios locales sin commitear, avisa antes de continuar:
 
@@ -77,6 +93,8 @@ Si hay ficheros del framework con cambios locales sin commitear, avisa antes de 
   <lista de ficheros>
 
 Estos cambios no están en el repo canónico. Se perderán con el update.
+Si eran personalizaciones de una skill, su sitio es .claude/skills/<skill>/user/behavior.md,
+que el update no toca.
 ¿Deseas continuar de todos modos, o prefieres commitear o stashear primero?
 ```
 
@@ -124,7 +142,7 @@ git checkout upstream/main -- core/ CLAUDE.md scripts/ README.md ROADMAP.md PHIL
 
 **6b. Skills — con exclusión explícita de `*/user/`:**
 ```
-git checkout upstream/main -- .claude/skills/ ":(exclude).claude/skills/*/user/"
+git checkout upstream/main -- .claude/skills/ ":(exclude).claude/skills/*/user/*"
 ```
 
 Si el shell reporta que la sintaxis `:(exclude)` no es soportada, haz el checkout skill a skill:

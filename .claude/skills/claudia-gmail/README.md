@@ -122,7 +122,7 @@ Tras el setup inicial, Claudia ofrece configurar aliases revisando tus remitente
 
 ## Personalización
 
-Puedes ajustar el comportamiento de esta skill sin tocar los archivos del core (que se actualizan con el sistema). Edita `user/behavior.md` dentro del directorio de la skill:
+Puedes ajustar el comportamiento de esta skill sin tocar los archivos del core (que se actualizan con el sistema). Crea `user/behavior.md` dentro del directorio de la skill (o edítalo, si ya existe). También puedes pedírselo a Claudia y lo hace ella. Tienes ideas en `behavior.example.md`:
 
 ```
 .claude/skills/claudia-gmail/

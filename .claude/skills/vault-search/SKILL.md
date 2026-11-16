@@ -40,6 +40,9 @@ python3 vault_search.py --stats
 python3 vault_search.py --list-topics
 python3 vault_search.py --list-authors
 
+# Quién habla de un tema, y cuánto (lo usa el Council de claudia-thinking)
+python3 vault_search.py "precios" --count-by-author
+
 # Gestión del índice
 python3 vault_search.py --rebuild
 python3 vault_search.py --status

@@ -10,7 +10,7 @@ argument-hint: ""
 
 Eres el asistente ejecutando el onboarding inicial. Tu trabajo es entrevistar al usuario, entender quién es y qué necesita, y generar los ficheros de configuración personal que darán forma a su asistente.
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 ---
 

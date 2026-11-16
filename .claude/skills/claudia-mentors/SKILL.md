@@ -1,0 +1,150 @@
+---
+name: claudia-mentors
+description: "Corpus de autores de referencia: ingesta automática de newsletters, feeds y APIs de mentores, almacenamiento en vault con autor etiquetado, modos de consulta (consult, crossref) y voces reales para el Council de claudia-thinking."
+scope: core
+user-invocable: true
+argument-hint: "[consult <autor> <tema>|crossref <tema>|add|backfill [<mentor-id>]|status]"
+---
+
+# Mentors — Corpus de autores de referencia
+
+Gestiona un corpus con el contenido de los autores que el usuario sigue: lo ingiere a diario, lo
+guarda en el vault con el metadato `author` y permite consultarlo por autor, cruzar autores entre sí
+y darles voz en el Council de `claudia-thinking`.
+
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
+
+## Requisitos
+
+- **`claudia-intake`** — la ingesta normal encola cada pieza en la intake, que extrae el wisdom
+  (con `claude -p`) y lo guarda en el vault cuando procesa su cola.
+- **`vault-search`** — consultas, `status` y voces del Council.
+- **`claudia-gmail`** — solo si algún mentor tiene fuentes de tipo `gmail`.
+
+## Primera configuración
+
+Si no existe `user/config/mentors.json`, cópialo de `mentors.example.json` (en este directorio) y
+da de alta los mentores con el usuario (ver *Añadir un mentor*). Hazlo tú: el usuario no tiene por
+qué editar JSON ni abrir una terminal.
+
+Después, programa la ingesta diaria en el cron del usuario (Linux y macOS), **pidiéndole permiso
+antes**. Una o dos pasadas al día bastan:
+
+```
+50 12 * * *  cd <ruta-de-claudia> && python3 .claude/skills/claudia-mentors/mentor_ingest.py >> .claude/logs/mentors.log 2>&1
+```
+
+Comprueba también que la intake tenga su propio cron de procesado: sin él, lo encolado no llega al
+vault.
+
+## Comandos
+
+### `/claudia-mentors consult <autor> <tema>`
+Qué dice un autor sobre un tema. Busca con 2-3 términos clave del tema:
+
+```bash
+python3 .claude/skills/vault-search/vault_search.py "<términos>" --author "<nombre>"
+```
+
+Lee las entradas más pertinentes y responde con su postura, citas textuales y la fecha de cada
+pieza. Si no hay resultados, prueba sinónimos antes de concluir que el autor no ha tratado el tema.
+
+### `/claudia-mentors crossref <tema>`
+Compara lo que dicen varios autores sobre un mismo tema. Primero, quién ha escrito sobre ello:
+
+```bash
+python3 .claude/skills/vault-search/vault_search.py "<términos>" --count-by-author
+```
+
+Después, para cada autor con material, `"<términos>" --author "<nombre>"`. Presenta las posiciones
+agrupadas por autor y cierra con convergencias, divergencias y tensiones.
+
+### Council con mentores
+No es un comando de esta skill: vive en el modo Council de `claudia-thinking`. Antes de deliberar,
+el Council propone el reparto y ofrece como voces reales a los autores del vault con entradas sobre
+el tema. El usuario valida quién participa: roles, mentores o una mezcla. Esta skill aporta el
+corpus del que salen esas voces.
+
+### `/claudia-mentors add`
+Da de alta un mentor con el usuario: ver *Añadir un mentor*.
+
+### `/claudia-mentors backfill [<mentor-id>]`
+Ingesta histórica de las fuentes `gmail` (todos los correos aún no procesados):
+
+```bash
+python3 .claude/skills/claudia-mentors/mentor_ingest.py --backfill [--mentor <id>] [--gmail-max 50]
+```
+
+Variantes para backfills grandes:
+- `--direct` — escribe cada correo tal cual en el vault, sin intake ni `claude -p` (0 tokens).
+  Calidad `baja`: sin extracción de ideas y con topics por palabras clave.
+- `--collect` — guarda los correos en `user/vault/.index/mentor_collect_queue.json` para procesarlos
+  en el chat. Para cada item: extrae el wisdom con el formato de `claudia-wisdom`, guárdalo en
+  `user/vault/wisdom/` con `author` y `origin: mentor`, reindexa con
+  `vault_search.py --reindex-file wisdom/<fichero>` y añade su `id` a `processed_ids` del mentor en
+  `user/config/mentors_state.json`. Borra el JSON al terminar.
+
+Para probar sin escribir nada: `--dry-run`.
+
+### `/claudia-mentors status`
+```bash
+python3 .claude/skills/claudia-mentors/mentor_ingest.py --status
+```
+Mentores configurados, entradas en el vault por autor e IDs procesados.
+
+## Fuentes
+
+Cada mentor tiene una o más fuentes en `user/config/mentors.json`:
+
+| Tipo | Campos | Cuándo se lee |
+|---|---|---|
+| `rss` | `url` del feed (RSS 2.0 o Atom; Substack, Ghost, WordPress, YouTube…) | Cada pasada diaria. Solo trae título y enlace: la intake descarga el contenido |
+| `gmail` | `account` (cuenta de `claudia-gmail`), `query` (búsqueda de Gmail) | En `--backfill`. Con `"daily": true`, también en cada pasada diaria (para quien solo publica por email) |
+| `api` | `url` de un endpoint JSON que devuelve la pieza del día; `credentials_key` (variable de `user/credentials/.env` con el token Bearer); `fields` opcional | Cada pasada diaria |
+
+- **YouTube:** el feed de un canal es
+  `https://www.youtube.com/feeds/videos.xml?channel_id=<id>`, como fuente `rss`.
+- **`fields` (api):** por defecto se esperan los campos `id`, `title`, `date`, `content` y `url`. Si el
+  endpoint usa otros nombres, mapéalos: `"fields": {"id": "post_id", "title": "titulo"}`.
+- **`footer_patterns` (por mentor, opcional):** expresiones regulares que marcan dónde empieza el pie
+  de sus correos. Solo se usan en `--direct`. Las genéricas («darse de baja», «unsubscribe», «© 20xx»)
+  ya vienen incluidas.
+- **`topic_keywords` (raíz del fichero, opcional):** mapa `topic → palabras clave` para clasificar
+  en `--direct`. Si no está, se usa uno genérico.
+
+Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log.
+
+## Añadir un mentor
+
+1. Pregunta al usuario por dónde publica el autor: newsletter con web (casi siempre tiene RSS:
+   prueba `<web>/feed`), solo por email o canal de YouTube.
+2. Comprueba que la fuente funciona antes de darla de alta: que el feed responda y tenga piezas
+   recientes, o que la búsqueda de Gmail devuelva sus correos. Un feed puede responder bien y
+   llevar años congelado.
+3. Añade la entrada a `user/config/mentors.json` (`id`, `name`, `description`, `tags`, `sources`).
+   El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
+4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.
+5. Prueba con `--dry-run --mentor <id>` y, si hay histórico en Gmail, lanza el backfill.
+
+## Arquitectura
+
+```
+user/config/mentors.json (config) + mentors_state.json (estado)
+        ↓
+  mentor_ingest.py
+        ↓
+  rss / gmail / api → normaliza → intake (cola) → claude -p (wisdom) → user/vault/wisdom/ (author: X)
+                              └── --direct ──────────────────────────→ user/vault/wisdom/
+                                                                              ↓
+                                                                     vault-search (SQLite)
+```
+
+**Dedup:** `processed_ids` por mentor en `mentors_state.json`, más una comprobación por
+`{fecha}_{slug(título)}` en el vault. Así no se duplica una pieza que llega por dos fuentes (la API
+y el correo del mismo día, por ejemplo).
+
+## Notas de la instancia
+
+Si existe `user/ESTADO.md` en este directorio, léelo antes de dar de alta, quitar o depurar
+mentores: recoge qué hay montado en esta instalación y qué se decidió no hacer, y por qué.
+Mantenlo al día cuando cambie algo.

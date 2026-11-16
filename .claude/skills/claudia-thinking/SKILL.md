@@ -9,7 +9,7 @@ argument-hint: "[council|redteam|firstprinciples] <pregunta, decisión o plan>"
 
 Eres Claudia ejecutando un modo de razonamiento extendido. Analiza los argumentos para identificar el modo y el tema.
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 Inspirado en el framework Thinking Modes de Daniel Miessler (PAI, MIT License).
 
@@ -26,7 +26,7 @@ Señales:
 - Lenguaje de decisión con incertidumbre ("¿qué harías tú?", "¿qué debería hacer?", "no sé si...")
 - Consecuencias de medio-largo plazo: estrategia, tiempo, dinero, dirección de proyecto
 
-Cómo anunciarlo: *"Veo que estás ante una decisión con trade-offs reales. Voy a convocar el Council — dime si prefieres respuesta directa."*
+Cómo anunciarlo: *"Veo que estás ante una decisión con trade-offs reales. Voy a convocar el Council — dime si prefieres respuesta directa."* Acompáñalo de la propuesta de reparto (paso 2 del modo).
 
 ### RedTeam — compromisos antes de ejecutar
 Señales:
@@ -62,7 +62,9 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
 
 1. Identifica el tema/decisión en los argumentos
 
-2. Convoca el consejo: selecciona 3-5 roles relevantes para este tipo de decisión. Roles disponibles (elige los más pertinentes):
+2. **Propón el reparto y espera a que el usuario lo valide.** No deliberes hasta tener su OK: quién se sienta en el consejo lo decide el usuario.
+
+   **a. Roles.** Elige 3-5 pertinentes para esta decisión, del catálogo y de los roles propios que haya en `user/behavior.md`:
    - **El Pragmático** — ¿Funciona en la práctica? ¿Qué recursos requiere? ¿Cuál es el camino más corto al resultado?
    - **El Escéptico** — ¿Qué puede salir mal? ¿Qué estamos asumiendo sin verificar?
    - **El Visionario** — ¿Hacia dónde va esto a largo plazo? ¿Qué oportunidad estamos perdiendo de vista?
@@ -71,10 +73,31 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
    - **El Contrario** — ¿Y si estamos completamente equivocados? ¿Cuál es el argumento opuesto más fuerte?
    - **El Experto de dominio** — ¿Qué dice la práctica establecida sobre esto? ¿Qué ha funcionado antes?
 
-3. Para cada rol convocado, desarrolla su perspectiva en 3-5 frases. Sin web search — razona desde el conocimiento existente y el contexto de la sesión.
+   **b. Voces reales del vault (si las hay).** Si existe la skill `vault-search`, busca qué autores han escrito sobre el tema con 2-3 términos clave:
+   ```bash
+   python3 .claude/skills/vault-search/vault_search.py "<términos>" --count-by-author
+   ```
+   Ofrece los autores con material suficiente para sostener una postura (como orientación, 3 entradas o más), agrupando variantes del mismo nombre. Si no hay vault, la búsqueda falla o nadie llega, ofrece solo roles y no lo menciones.
+
+   **c. Presenta la propuesta** — si el Council se activó por auto-selección, en la misma respuesta que el anuncio:
+   ```
+   Propongo este consejo:
+   - El Pragmático (rol)
+   - El Escéptico (rol)
+   - [Autor A] (voz real · 45 entradas sobre el tema)
+   - [Autor B] (voz real · 10 entradas)
+
+   ¿Lo convoco así? Puedes quitar o añadir a quien quieras: solo roles, solo voces reales o una mezcla.
+   ```
+   Si el usuario pide a una persona real sin entradas en el vault, inclúyela marcada como **voz inferida**: hablará desde lo que el modelo sabe de ella, no desde su corpus, y así se indica en el output.
+
+3. Desarrolla la perspectiva de cada voz en 3-5 frases. Sin web search — razona desde el conocimiento existente, el contexto de la sesión y, para las voces reales, su corpus:
+   - **Voces reales:** recupera sus entradas con `python3 .claude/skills/vault-search/vault_search.py "<términos>" --author "<nombre>"` y lee las más pertinentes. Su postura sale de lo que han escrito, con referencia a la pieza (título y fecha). No les atribuyas opiniones que no estén en el corpus; si el tema tiene un ángulo que su material no toca, dilo en vez de rellenarlo.
+   - **Voces inferidas:** razona desde lo que se sabe públicamente de esa persona, sin citas inventadas.
+   - **Roles:** desde la pregunta que define cada rol.
 
 4. Sintetiza:
-   - Puntos de acuerdo entre los roles
+   - Puntos de acuerdo entre las voces
    - Tensiones o contradicciones relevantes
    - La recomendación que emerge del consejo (con sus condiciones)
 
@@ -84,15 +107,15 @@ Cómo anunciarlo: *"Esto parece algo que merece deconstruirse desde cero. Voy a 
 ## Council: [Tema]
 
 ### Voces convocadas
-[Lista de roles seleccionados y por qué]
+[Cada voz con su tipo — rol / voz real (N entradas) / voz inferida — y por qué está]
 
 ### El Pragmático
 [Perspectiva]
 
-### El Escéptico
-[Perspectiva]
+### [Autor A] · voz real
+[Perspectiva, con referencia a las piezas: «Título» (AAAA-MM-DD)]
 
-[...resto de roles...]
+[...resto de voces...]
 
 ### Síntesis del consejo
 **Acuerdo:** [qué está claro para todos]

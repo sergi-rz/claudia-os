@@ -8,6 +8,7 @@ Usage:
     python3 vault_search.py "query"                    # Full-text search
     python3 vault_search.py --topic agentes-ia         # Filter by topic
     python3 vault_search.py --author Miessler           # Filter by author
+    python3 vault_search.py "precios" --count-by-author # Who talks about it, and how much
     python3 vault_search.py --context "tema" --max-tokens 2000  # Context pack
     python3 vault_search.py --rebuild                   # Rebuild index
     python3 vault_search.py --stats                     # Show stats
@@ -309,7 +310,9 @@ def _apply_filters(conn, filters: dict) -> set[str]:
     params = []
 
     if filters.get("author"):
-        conditions.append("LOWER(author) LIKE ?")
+        # LOWER() de SQLite solo baja ASCII: "Ángela" no casaría con "ángela".
+        conn.create_function("py_lower", 1, lambda s: s.lower() if s else s)
+        conditions.append("py_lower(author) LIKE ?")
         params.append(f"%{filters['author'].lower()}%")
     if filters.get("quality"):
         conditions.append("quality = ?")
@@ -592,6 +595,8 @@ def main():
 
     parser.add_argument("--list-topics", action="store_true", help="List all topics with counts")
     parser.add_argument("--list-authors", action="store_true", help="List all authors with counts")
+    parser.add_argument("--count-by-author", action="store_true",
+                        help="With a query: count matching items per author instead of listing them")
     parser.add_argument("--stats", action="store_true", help="Show vault statistics")
     parser.add_argument("--rebuild", action="store_true", help="Force full index rebuild")
     parser.add_argument("--reindex-file", metavar="PATH", help="Reindex a single file (relative to vault/)")
@@ -718,6 +723,18 @@ def main():
         results = search_structured(filters)
     else:
         parser.print_help()
+        return
+
+    if args.count_by_author:
+        counts = {}
+        for item in results:
+            author = item.get("author") or ""
+            if author and author != "None":
+                counts[author] = counts.get(author, 0) + 1
+        if not counts:
+            print("Sin resultados.")
+        for author, count in sorted(counts.items(), key=lambda x: -x[1]):
+            print(f"  {author}: {count}")
         return
 
     print(format_results(results))

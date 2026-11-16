@@ -12,7 +12,7 @@ Los ficheros viven en `user/workspaces/_me/notes/`:
 - `ideas.md` — ideas sueltas
 - `wishlist.md` — cosas que el usuario quiere comprar, leer, probar o guardar para después
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 ## Intents — actúa sin pedir confirmación
 

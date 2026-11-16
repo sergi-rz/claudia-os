@@ -10,7 +10,7 @@ argument-hint: "import <file> | categorizar | enrich <merchant> | dashboard | re
 
 Importa extractos bancarios (CSV), categoriza automáticamente cada movimiento, enriquece con detalle de merchants (Amazon, etc.), y genera dashboards visuales.
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 ## First-run: bootstrap automático
 

@@ -17,3 +17,7 @@ python3 "$SCRIPT" --action sync --channel "$CHANNEL"
 
 # Linkear corpus si hay workspace configurado
 python3 "$SCRIPT" --action corpus-link --channel "$CHANNEL"
+
+# Informes diarios de la Reporting API (alcance y actividad). Va al final:
+# si falla, no bloquea el sync de Analytics ni el corpus-link
+python3 "$SCRIPT" --action reporting-sync --channel "$CHANNEL"

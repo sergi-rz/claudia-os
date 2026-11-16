@@ -8,7 +8,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CLAUDIA_ROOT = os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
 DATA_DIR = os.path.join(CLAUDIA_ROOT, 'user', 'data', 'yt-analytics')
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS channel (
@@ -100,7 +100,49 @@ CREATE TABLE IF NOT EXISTS sync_log (
 CREATE VIRTUAL TABLE IF NOT EXISTS videos_fts
 USING fts5(video_id, title, description, tags, tokenize='porter unicode61');
 
-PRAGMA user_version = 1;
+-- Reporting API (bulk daily reports). video_id has no FK: reports include
+-- Shorts and channel-level rows with an empty video_id.
+CREATE TABLE IF NOT EXISTS video_reach (
+    video_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    impressions INTEGER DEFAULT 0,
+    ctr REAL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (video_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS video_activity (
+    video_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    live_or_on_demand TEXT NOT NULL,
+    subscribed_status TEXT NOT NULL,
+    country_code TEXT NOT NULL,
+    views INTEGER DEFAULT 0,
+    engaged_views INTEGER DEFAULT 0,
+    watch_time_minutes REAL DEFAULT 0,
+    average_view_duration_seconds REAL DEFAULT 0,
+    average_view_duration_percentage REAL DEFAULT 0,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    shares INTEGER DEFAULT 0,
+    subscribers_gained INTEGER DEFAULT 0,
+    subscribers_lost INTEGER DEFAULT 0,
+    red_views INTEGER DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (video_id, date, live_or_on_demand, subscribed_status, country_code)
+);
+
+CREATE TABLE IF NOT EXISTS reporting_reports (
+    report_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    report_type TEXT NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    rows INTEGER DEFAULT 0,
+    downloaded_at TEXT NOT NULL
+);
+
+PRAGMA user_version = 2;
 """
 
 

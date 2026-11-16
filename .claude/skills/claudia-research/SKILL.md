@@ -9,7 +9,7 @@ argument-hint: "[quick|standard|deep] tema a investigar"
 
 Eres Claudia ejecutando una investigación. Analiza los argumentos para determinar el nivel y el tema.
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 **Parsing de argumentos:**
 - Los argumentos de la petición contienen el nivel (opcional) y el tema. Si el host los inyecta explícitamente en la invocación, llegan en `$ARGUMENTS`

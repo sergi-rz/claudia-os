@@ -59,7 +59,7 @@ Guía al usuario por la configuración completa. Ejecutar los pasos en orden, sa
    ```
 2. **Credentials OAuth:** comprobar si existe `user/credentials/youtube/credentials.json`.
    - Si no existe, comprobar `user/credentials/gmail/credentials.json` (se puede reutilizar el mismo proyecto de Google Cloud).
-   - Si no hay ninguno, mostrar instrucciones de setup de Google Cloud Console (crear proyecto, habilitar YouTube Data API v3 y YouTube Analytics API, crear credenciales OAuth Desktop app, descargar JSON).
+   - Si no hay ninguno, mostrar instrucciones de setup de Google Cloud Console (crear proyecto, habilitar YouTube Data API v3, YouTube Analytics API y YouTube Reporting API, crear credenciales OAuth Desktop app, descargar JSON).
 3. **Autorizar canal:** ejecutar `auth.py <canal>` con los flags adecuados según el entorno (headless: `--no-browser --port <puerto>`).
 4. **Configuración:** añadir/verificar sección `skill_yt_analytics` en `user/config/settings.json` con `channel_id`, `token` y opcionalmente `workspace`.
 5. **Primer sync:** sugerir ejecutar `/yt-analytics sync --full` para poblar la base de datos.
@@ -80,7 +80,31 @@ Sincroniza datos del canal.
    ```bash
    python3 yt_analytics.py --action corpus-link --channel <canal> --workspace <ws>
    ```
-4. Reportar resumen al usuario.
+4. Descargar los informes diarios de la Reporting API:
+   ```bash
+   python3 yt_analytics.py --action reporting-sync --channel <canal>
+   ```
+5. Reportar resumen al usuario.
+
+### Reporting API (impresiones y CTR)
+
+La Analytics API no da impresiones ni CTR de miniaturas; salen de la **YouTube Reporting API**,
+que funciona distinto: YouTube genera un CSV por día y solo para los tipos de informe que
+tienen un *trabajo* creado. `reporting-sync` crea los trabajos que falten y descarga los
+informes nuevos:
+
+| Informe | Tabla | Qué trae |
+|---------|-------|----------|
+| `channel_reach_basic_a1` | `video_reach` | impresiones y CTR por vídeo y día |
+| `channel_basic_a3` | `video_activity` | vistas, engaged views, % de vídeo visto, likes, subs... por vídeo, día, país, suscrito/no suscrito y directo/bajo demanda |
+
+- Tras crear un trabajo, el primer informe tarda hasta 48 h. YouTube suele rellenar los ~30 días anteriores.
+- YouTube puede regenerar un día con datos corregidos: el informe más reciente sustituye al día entero.
+- Las filas con `video_id` vacío son datos de canal (p. ej. suscriptores ganados desde la página del canal).
+- Los informes incluyen Shorts; `video_reach` y `video_activity` no tienen FK a `videos`.
+- El CTR no se puede separar entre suscriptores y no suscriptores: ningún informe de alcance tiene esa dimensión.
+- `video-stats` y `compare` sacan `total_impressions` y `avg_ctr_pct` (ponderado por impresiones) de `video_reach`.
+- Cuota: 60 peticiones/minuto por proyecto de Cloud; el fetcher espacia las llamadas y reintenta los 429.
 
 ### `/yt-analytics report`
 Análisis de rendimiento. Sigue este workflow:

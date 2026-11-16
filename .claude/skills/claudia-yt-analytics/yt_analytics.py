@@ -4,6 +4,7 @@ Claudia OS — YouTube Analytics CLI.
 
 Uso:
     python3 yt_analytics.py --action sync --channel mi-canal [--full] [--since 2025-01-01]
+    python3 yt_analytics.py --action reporting-sync --channel mi-canal
     python3 yt_analytics.py --action overview --channel mi-canal
     python3 yt_analytics.py --action video-stats --channel mi-canal [--top 10] [--sort views]
     python3 yt_analytics.py --action trends --channel mi-canal [--period 30d]
@@ -44,6 +45,7 @@ from fetchers.data_api import fetch_channel_info, fetch_all_video_ids, fetch_vid
 from fetchers.analytics_api import (  # noqa: E402
     fetch_video_metrics, fetch_channel_metrics, fetch_traffic_sources, fetch_demographics,
 )
+from fetchers.reporting_api import ensure_jobs, list_latest_reports, download_report  # noqa: E402
 
 
 def load_settings():
@@ -185,7 +187,7 @@ def action_sync(args, settings):
                 start_date = datetime.strptime(earliest, '%Y-%m-%d') if earliest else datetime.now(timezone.utc) - timedelta(days=365)
             else:
                 last_sync = conn.execute(
-                    "SELECT MAX(date_range_end) FROM sync_log WHERE status = 'completed'"
+                    "SELECT MAX(date_range_end) FROM sync_log WHERE status = 'completed' AND sync_type != 'reporting'"
                 ).fetchone()[0]
                 if last_sync:
                     start_date = datetime.strptime(last_sync, '%Y-%m-%d') - timedelta(days=3)
@@ -265,6 +267,115 @@ def action_sync(args, settings):
         conn.close()
 
 
+ACTIVITY_INT_FIELDS = (
+    'views', 'engaged_views', 'likes', 'comments', 'shares',
+    'subscribers_gained', 'subscribers_lost', 'red_views',
+)
+ACTIVITY_REAL_FIELDS = (
+    'watch_time_minutes', 'average_view_duration_seconds', 'average_view_duration_percentage',
+)
+
+
+def _report_date(yyyymmdd):
+    return f"{yyyymmdd[:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:]}"
+
+
+def _store_reach(conn, rows, now):
+    for r in rows:
+        conn.execute("""
+            INSERT OR REPLACE INTO video_reach (video_id, date, impressions, ctr, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (r['video_id'], _report_date(r['date']),
+              int(float(r['video_thumbnail_impressions'] or 0)),
+              float(r['video_thumbnail_impressions_ctr'] or 0), now))
+
+
+def _store_activity(conn, rows, now):
+    for r in rows:
+        values = {
+            'video_id': r['video_id'],
+            'date': _report_date(r['date']),
+            'live_or_on_demand': r['live_or_on_demand'],
+            'subscribed_status': r['subscribed_status'],
+            'country_code': r['country_code'],
+            'updated_at': now,
+        }
+        values.update({f: int(float(r[f] or 0)) for f in ACTIVITY_INT_FIELDS})
+        values.update({f: float(r[f] or 0) for f in ACTIVITY_REAL_FIELDS})
+        conn.execute(f"""
+            INSERT OR REPLACE INTO video_activity ({', '.join(values)})
+            VALUES ({', '.join(':' + k for k in values)})
+        """, values)
+
+
+REPORT_STORES = {
+    'channel_reach_basic_a1': ('video_reach', _store_reach),
+    'channel_basic_a3': ('video_activity', _store_activity),
+}
+
+
+def action_reporting_sync(args, settings):
+    name, channel_cfg = resolve_channel(args, settings)
+    token_name = channel_cfg.get('token', name)
+
+    reporting = build('youtubereporting', 'v1', credentials=load_credentials(token_name))
+    conn = get_db(channel_cfg['channel_id'])
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn.execute(
+        "INSERT INTO sync_log (sync_type, started_at, status) VALUES (?, ?, ?)",
+        ('reporting', now, 'running'),
+    )
+    sync_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.commit()
+
+    try:
+        jobs = ensure_jobs(reporting)
+        done = {r[0] for r in conn.execute("SELECT report_id FROM reporting_reports").fetchall()}
+        summary = {}
+        dates = []
+
+        for report_type, job_id in jobs.items():
+            table, store = REPORT_STORES[report_type]
+            reports = [r for r in list_latest_reports(reporting, job_id) if r['id'] not in done]
+            print(f"[reporting] {report_type}: {len(reports)} new reports")
+
+            for rep in reports:
+                rows = download_report(reporting, rep['downloadUrl'])
+                date = rep['startTime'][:10]
+                # A regenerated report replaces the whole day
+                conn.execute(f"DELETE FROM {table} WHERE date = ?", (date,))
+                store(conn, rows, now)
+                conn.execute("""
+                    INSERT OR REPLACE INTO reporting_reports
+                    (report_id, job_id, report_type, date, created_at, rows, downloaded_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (rep['id'], job_id, report_type, date, rep['createTime'], len(rows), now))
+                conn.commit()
+                dates.append(date)
+
+            summary[report_type] = len(reports)
+
+        conn.execute("""
+            UPDATE sync_log SET completed_at = ?, date_range_start = ?, date_range_end = ?,
+            status = 'completed' WHERE id = ?
+        """, (datetime.now(timezone.utc).isoformat(),
+              min(dates) if dates else None, max(dates) if dates else None, sync_id))
+        conn.commit()
+        print(json.dumps({'new_reports': summary}, indent=2))
+
+    except Exception as e:
+        conn.execute(
+            "UPDATE sync_log SET completed_at = ?, status = 'error', error_message = ? WHERE id = ?",
+            (datetime.now(timezone.utc).isoformat(), str(e), sync_id),
+        )
+        conn.commit()
+        print(json.dumps({'error': str(e)}))
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
 def action_overview(args, settings):
     _, channel_cfg = resolve_channel(args, settings)
     conn = get_db(channel_cfg['channel_id'])
@@ -291,7 +402,7 @@ def action_overview(args, settings):
     """, (last_7d,)).fetchone()
 
     last_sync = conn.execute(
-        "SELECT completed_at, date_range_start, date_range_end FROM sync_log WHERE status = 'completed' ORDER BY id DESC LIMIT 1"
+        "SELECT completed_at, date_range_start, date_range_end FROM sync_log WHERE status = 'completed' AND sync_type != 'reporting' ORDER BY id DESC LIMIT 1"
     ).fetchone()
 
     result = {
@@ -336,7 +447,7 @@ def action_video_stats(args, settings):
 
     sort_map = {
         'views': 'SUM(m.views)',
-        'ctr': 'AVG(m.ctr)',
+        'ctr': 'MAX(rch.ctr)',
         'retention': 'AVG(m.average_view_duration_seconds)',
         'subs': 'SUM(m.subscribers_gained) - SUM(m.subscribers_lost)',
         'watch_time': 'SUM(m.watch_time_minutes)',
@@ -348,14 +459,19 @@ def action_video_stats(args, settings):
                SUM(m.views) as total_views,
                ROUND(SUM(m.watch_time_minutes) / 60.0, 1) as watch_time_hours,
                ROUND(AVG(m.average_view_duration_seconds), 0) as avg_view_duration,
-               ROUND(AVG(m.ctr) * 100, 2) as avg_ctr_pct,
-               SUM(m.impressions) as total_impressions,
+               ROUND(MAX(rch.ctr) * 100, 2) as avg_ctr_pct,
+               MAX(rch.impressions) as total_impressions,
                SUM(m.likes) as total_likes,
                SUM(m.comments) as total_comments,
                SUM(m.subscribers_gained) as subs_gained,
                SUM(m.subscribers_lost) as subs_lost
         FROM videos v
         LEFT JOIN video_metrics m ON v.video_id = m.video_id
+        LEFT JOIN (
+            SELECT video_id, SUM(impressions) AS impressions,
+                   SUM(impressions * ctr) / NULLIF(SUM(impressions), 0) AS ctr
+            FROM video_reach GROUP BY video_id
+        ) rch ON v.video_id = rch.video_id
         WHERE v.is_short = 0
         GROUP BY v.video_id
         ORDER BY {order_expr} DESC
@@ -474,10 +590,16 @@ def action_compare(args, settings):
                SUM(m.views) as total_views,
                ROUND(SUM(m.watch_time_minutes) / 60.0, 1) as watch_time_hours,
                ROUND(AVG(m.average_view_duration_seconds), 0) as avg_view_duration,
-               ROUND(AVG(m.ctr) * 100, 2) as avg_ctr_pct,
+               ROUND(MAX(rch.ctr) * 100, 2) as avg_ctr_pct,
+               MAX(rch.impressions) as total_impressions,
                SUM(m.subscribers_gained) - SUM(m.subscribers_lost) as net_subs
         FROM videos v
         LEFT JOIN video_metrics m ON v.video_id = m.video_id
+        LEFT JOIN (
+            SELECT video_id, SUM(impressions) AS impressions,
+                   SUM(impressions * ctr) / NULLIF(SUM(impressions), 0) AS ctr
+            FROM video_reach GROUP BY video_id
+        ) rch ON v.video_id = rch.video_id
         WHERE v.video_id IN ({placeholders})
         GROUP BY v.video_id
     """, video_ids).fetchall()
@@ -568,7 +690,7 @@ def action_search(args, settings):
 def main():
     parser = argparse.ArgumentParser(description='YouTube Analytics CLI')
     parser.add_argument('--action', required=True,
-                        choices=['sync', 'overview', 'video-stats', 'trends',
+                        choices=['sync', 'reporting-sync', 'overview', 'video-stats', 'trends',
                                  'traffic', 'demographics', 'compare',
                                  'corpus-link', 'search', 'accounts'])
     parser.add_argument('--channel', help='Nombre del canal (clave en settings.json)')
@@ -589,6 +711,8 @@ def main():
         action_accounts()
     elif args.action == 'sync':
         action_sync(args, settings)
+    elif args.action == 'reporting-sync':
+        action_reporting_sync(args, settings)
     elif args.action == 'overview':
         action_overview(args, settings)
     elif args.action == 'video-stats':

@@ -38,7 +38,9 @@ Cuando lo activa, te avisa primero y puedes decir "no hace falta" para saltar al
 
 ### Council — deliberacion multi-perspectiva
 
-Para decisiones con alternativas reales y trade-offs. Claudia convoca 3-5 roles del consejo segun el tipo de decision:
+Para decisiones con alternativas reales y trade-offs. Antes de deliberar, Claudia te propone quien se sienta en el consejo y espera a que lo valides. Puedes quitar o añadir voces, y elegir solo roles, solo voces reales o una mezcla.
+
+**Roles** — 3-5 segun el tipo de decision (mas los que hayas añadido en `user/behavior.md`):
 
 | Rol | Perspectiva |
 |-----|-------------|
@@ -50,7 +52,9 @@ Para decisiones con alternativas reales y trade-offs. Claudia convoca 3-5 roles 
 | El Contrario | El argumento opuesto mas fuerte |
 | El Experto de dominio | Practica establecida, que ha funcionado antes |
 
-El output incluye la perspectiva de cada rol, los puntos de acuerdo, la tension central y una recomendacion sintetizada.
+**Voces reales** — si tu vault tiene contenido de autores que han escrito sobre el tema (via `vault-search`), Claudia los ofrece con cuantas entradas tiene de cada uno. Una voz real habla desde lo que ese autor ha escrito, citando la pieza, y no se le atribuye nada que no este en su corpus. Si pides a alguien que no esta en tu vault, entra como **voz inferida**: sale de lo que el modelo sabe de esa persona, y el output lo marca asi.
+
+El output incluye la perspectiva de cada voz, los puntos de acuerdo, la tension central y una recomendacion sintetizada.
 
 ### RedTeam — validacion adversarial
 
@@ -87,7 +91,7 @@ Los modos de thinking no generan ficheros permanentes por defecto. Tras una deli
 
 ## Personalización
 
-Puedes ajustar el comportamiento de esta skill sin tocar los archivos del core (que se actualizan con el sistema). Edita `user/behavior.md` dentro del directorio de la skill:
+Puedes ajustar el comportamiento de esta skill sin tocar los archivos del core (que se actualizan con el sistema). Crea `user/behavior.md` dentro del directorio de la skill (o edítalo, si ya existe). También puedes pedírselo a Claudia y lo hace ella. Tienes ideas en `behavior.example.md`:
 
 ```
 .claude/skills/claudia-thinking/
@@ -110,4 +114,5 @@ Las instrucciones de `user/behavior.md` tienen preferencia en caso de conflicto 
 
 - **claudia-research** — para investigar datos antes de razonar. Usa `/research` para reunir informacion y luego `/thinking` para deliberar
 - **claudia-wisdom** — las extracciones de wisdom pueden alimentar el contexto de un Council o FirstPrinciples
+- **vault-search** — de ahi salen las voces reales del Council: los autores con entradas en tu vault sobre el tema
 - **memory-search** — para recuperar deliberaciones pasadas registradas en memoria episodica

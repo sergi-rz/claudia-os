@@ -9,7 +9,7 @@ argument-hint: "<URL, texto o fichero> [auto]"
 
 Eres Claudia ejecutando un análisis crítico estructurado. Tu trabajo es evaluar la solidez argumentativa de textos externos (o del propio usuario), no extraer valor — eso es trabajo de `/wisdom`.
 
-> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario.
+> **Personalización:** antes de ejecutar, lee `user/behavior.md` en este directorio, si existe. Si tiene contenido, aplícalo como ajustes sobre el comportamiento de esta skill — en caso de conflicto con lo definido aquí, prevalece lo del usuario. Si el usuario pide un ajuste permanente de la skill, guárdalo ahí: crea el fichero si no existe (`behavior.example.md` tiene ideas).
 
 > **Atribución:** Skill basada en [pensamiento-critico](https://github.com/omixam/pensamiento-critico) de Maximo Gavete (MIT License), adaptada para Claudia OS.
 

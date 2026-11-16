@@ -1,0 +1,32 @@
+{
+  "mentors": [
+    {
+      "id": "autor-con-newsletter",
+      "name": "Nombre del Autor",
+      "description": "Qué escribe y por qué lo sigues",
+      "tags": ["negocio", "productividad"],
+      "sources": [
+        { "type": "rss", "url": "https://ejemplo.substack.com/feed" }
+      ]
+    },
+    {
+      "id": "autora-solo-email",
+      "name": "Nombre de la Autora",
+      "description": "Solo publica por email",
+      "tags": ["marketing"],
+      "sources": [
+        { "type": "gmail", "account": "personal", "query": "from:hola@ejemplo.com", "daily": true }
+      ],
+      "footer_patterns": ["enviado por nombre de la autora"]
+    },
+    {
+      "id": "autor-en-youtube",
+      "name": "Nombre del Canal",
+      "description": "Canal de YouTube",
+      "tags": ["ia"],
+      "sources": [
+        { "type": "rss", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=<id-del-canal>" }
+      ]
+    }
+  ]
+}
