@@ -145,6 +145,10 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
    El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
 4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.
 5. Prueba con `--dry-run --mentor <id>` y, si hay histórico en Gmail, lanza el backfill.
+6. **Foto** (para el panel del Council): `mentor_ingest.py --fetch-photos --mentor <id>` la baja de
+   la imagen de su feed, si la hay, a `user/config/mentor-photos/<id>.<ext>`. Es la imagen de la
+   publicación: mírala, y si es un logo bórrala (mejor sus iniciales que un logo) o pide al usuario
+   una foto. Los que solo publican por email no tienen imagen: la pone el usuario.
 
 ## Arquitectura
 

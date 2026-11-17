@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Sala del Consejo</title>
+<link rel="stylesheet" href="/base.css">
+<link rel="stylesheet" id="themeCss" href="">
+</head>
+<body class="mode-scene">
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="title" id="brandTitle"></div>
+      <h1 class="question" id="question">…</h1>
+      <div class="status" id="status"></div>
+    </div>
+    <nav class="controls">
+      <div class="tabs">
+        <button data-mode="scene" title="Tecla 1">Escena</button>
+        <button data-mode="quick" title="Tecla 2">Rápido</button>
+        <button data-mode="log" title="Tecla 3">Acta</button>
+      </div>
+      <button id="autoBtn" class="toggle" title="Avance automático (tecla A)">▶ Auto</button>
+      <button id="soundBtn" class="toggle" title="Sonido (tecla M)">♪ Sonido</button>
+      <button id="replayBtn" title="Volver a reproducir el consejo">↻ Repetir</button>
+      <button id="recBtn" title="Modo grabación: solo la escena, en 16:9 (Esc para salir)">● Grabar</button>
+      <select id="themeSel" title="Tema"></select>
+      <select id="sessionSel" title="Sesión"></select>
+    </nav>
+  </header>
+
+  <main>
+    <section class="view view-scene">
+      <div class="stage" id="stage">
+        <div class="hall"></div>
+        <div class="table"><div class="table-label" id="tableLabel"></div></div>
+        <svg class="beam" id="beam"></svg>
+        <div class="decree" id="decree"></div>
+        <div class="board" id="board"></div>
+        <div class="legend" id="legend"></div>
+        <div class="toast" id="toast"></div>
+      </div>
+      <div class="dialog" id="dialog">
+        <div class="portrait" id="dlgPortrait"></div>
+        <div class="dialog-body">
+          <div class="speaker" id="dlgSpeaker"></div>
+          <div class="line" id="dlgLine"></div>
+        </div>
+        <button class="fullbtn" id="fullBtn" title="Ver toda la exposición (tecla V)">Ver todo</button>
+        <div class="hint"></div>
+        <div class="next">▼</div>
+      </div>
+    </section>
+
+    <section class="view view-quick">
+      <div class="quick-actions">
+        <button id="openAll">Abrir todas</button>
+        <button id="closeAll">Cerrar todas</button>
+      </div>
+      <div id="quick"></div>
+    </section>
+
+    <section class="view view-log">
+      <div id="log"></div>
+    </section>
+  </main>
+
+  <div class="empty" id="empty" hidden></div>
+</div>
+<div class="sheet" id="sheet"><div class="sheet-card" id="sheetCard"></div></div>
+<div class="rec-exit">Esc para salir</div>
+<script src="/council.js"></script>
+</body>
+</html>

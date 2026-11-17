@@ -1,0 +1,34 @@
+{
+  "label": "16 bits",
+  "fonts": [
+    "https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Jersey+10&display=swap"
+  ],
+  "pixelate": 48,
+  "label_case": "normal",
+  "strings": {
+    "brand": "El consejo de Claudia",
+    "host": "Claudia",
+    "enter": "¡{name} se une al consejo!",
+    "tableIdle": "El consejo se reúne",
+    "tableLive": "El consejo delibera",
+    "tableReplies": "Réplicas",
+    "tableDone": "Veredicto",
+    "replies": "Ronda de réplicas",
+    "verdict": "Veredicto del consejo",
+    "verdict2": "Veredicto tras las réplicas",
+    "hint": "pulsa espacio",
+    "convoked": "Misión del consejo",
+    "options": "Opciones",
+    "optionsLine": "Estas son las opciones que han salido. Elige bien."
+  },
+  "sounds": "8bit",
+  "scene": {
+    "image": "scene.webp",
+    "seats": {
+      "cx": 49.5,
+      "cy": 49,
+      "rx": 31,
+      "ry": 33
+    }
+  }
+}

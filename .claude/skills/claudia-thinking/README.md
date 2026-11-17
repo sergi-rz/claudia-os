@@ -56,6 +56,8 @@ Para decisiones con alternativas reales y trade-offs. Antes de deliberar, Claudi
 
 El output incluye la perspectiva de cada voz, los puntos de acuerdo, la tension central y una recomendacion sintetizada.
 
+**La Sala del Consejo (opcional).** Si le pides a Claudia que te lo enseñe en La Sala, abre una pagina local (`http://localhost:8787`) con una mesa redonda: los miembros entran y toman asiento, quien habla se ilumina, su texto sale en un cuadro de dialogo por paginas y el veredicto aparece sobre la mesa. Tiene modo Rapido (fichas con la postura de cada uno) y Acta (todo el texto), un modo para grabarla y varios temas (Mesa del Rey Arturo, Minimal, 16 bits); puedes crear el tuyo, ver `council-live/THEMES.md`. Para que tus mentores salgan con su cara, pon su foto en `user/config/mentor-photos/<id>.jpg`.
+
 ### RedTeam — validacion adversarial
 
 Para cuando ya tienes un plan concreto y quieres encontrar fallos antes de ejecutarlo. Claudia ataca desde cinco vectores:

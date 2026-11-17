@@ -1,0 +1,29 @@
+{
+  "label": "Minimal",
+  "fonts": [],
+  "pixelate": false,
+  "label_case": "normal",
+  "strings": {
+    "brand": "Council · Claudia",
+    "host": "Claudia",
+    "enter": "{name} se une",
+    "tableIdle": "Preparando la mesa",
+    "tableLive": "Deliberando",
+    "tableReplies": "Réplicas",
+    "tableDone": "Cerrado",
+    "verdict": "Síntesis del consejo",
+    "verdict2": "Síntesis tras las réplicas",
+    "convoked": "La pregunta",
+    "options": "Opciones"
+  },
+  "sounds": "soft",
+  "scene": {
+    "image": "scene.webp",
+    "seats": {
+      "cx": 49.8,
+      "cy": 59,
+      "rx": 29,
+      "ry": 27
+    }
+  }
+}

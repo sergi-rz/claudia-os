@@ -1,0 +1,133 @@
+/* La Sala del Consejo · estructura común.
+   Solo disposición y comportamiento: dónde va cada cosa y qué se ve en cada modo.
+   El aspecto (colores, fuentes, mesa, marcos) es de cada tema: themes/<nombre>/theme.css. */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+.app { max-width: 1200px; margin: 0 auto; padding: 18px 22px 60px; }
+
+/* Barra superior */
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+.brand { flex: 1 1 520px; min-width: 0; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.tabs { display: flex; }
+.controls button, .controls select { cursor: pointer; }
+.controls select { max-width: 230px; }
+
+/* Vistas: solo se ve la del modo activo */
+.view { display: none; }
+body.mode-scene .view-scene, body.mode-quick .view-quick, body.mode-log .view-log { display: block; }
+
+/* Escena: mesa redonda vista desde arriba */
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 8.6; max-height: 600px; margin-top: 44px; }
+.hall, .table, .decree, .toast, .beam { position: absolute; }
+.hall { inset: 0; pointer-events: none; }
+.table { left: var(--cx, 50%); top: var(--cy, 50%); width: 46%; height: 52%; transform: translate(-50%, -50%); border-radius: 50%;
+  display: grid; place-items: center; text-align: center; }
+.table-label { position: relative; padding: 0 14%; }
+.beam { inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+.decree { left: var(--cx, 50%); top: var(--cy, 50%); width: 42%; transform: translate(-50%, -50%) scale(.6); opacity: 0; z-index: 6;
+  transition: transform .5s cubic-bezier(.2, 1.6, .4, 1), opacity .4s; pointer-events: none; }
+.decree.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.toast { left: var(--cx, 50%); top: var(--cy, 50%); transform: translate(-50%, -50%) scale(.8); opacity: 0; z-index: 7; white-space: nowrap;
+  transition: opacity .25s, transform .25s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+.seat { position: absolute; transform: translate(-50%, -50%); text-align: center; z-index: 3; width: 140px; cursor: pointer; }
+
+/* Tablero de opciones, sobre la mesa */
+.board { position: absolute; left: var(--cx, 50%); top: var(--cy, 50%); width: 50%; transform: translate(-50%, -50%); z-index: 6; display: none;
+  grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.board.show { display: grid; }
+.option { opacity: 0; transform: translateY(14px) scale(.9); transition: opacity .35s, transform .4s cubic-bezier(.2, 1.5, .4, 1); }
+.option.in { opacity: 1; transform: none; }
+.opt-people { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.mini { display: inline-block; width: 26px; height: 26px; overflow: hidden; }
+.mini canvas, .mini .tile { width: 100%; height: 100%; display: block; }
+.mini .tile svg { width: 60%; height: 60%; }
+.legend:empty { display: none; }
+.legend { position: absolute; right: 0; bottom: 0; z-index: 4; display: flex; gap: 12px; }
+.legend-item i { display: inline-block; width: 18px; height: 4px; vertical-align: middle; margin-right: 6px; }
+.beam line.map { opacity: .75; }
+.beam line.glow.map { opacity: .15; }
+
+/* Ficha de un miembro */
+.sheet { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: rgba(0, 0, 0, .55); }
+.sheet.show { display: grid; }
+.sheet-card { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 20px; width: min(640px, 92vw); max-height: 86vh; overflow-y: auto; }
+.sheet-portrait { width: 120px; height: 120px; }
+.sheet-close { position: absolute; top: 10px; right: 12px; cursor: pointer; }
+.sources { margin-top: 6px; }
+.seat.absent { visibility: hidden; }
+.seat.entering { animation: seat-in .55s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes seat-in { from { opacity: 0; transform: translate(-50%, 10%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.seat .portrait { margin: 0 auto; position: relative; }
+.bubble { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); opacity: 0; white-space: nowrap; z-index: 5;
+  transition: opacity .2s; pointer-events: none; }
+.seat.state-speaking .bubble, .seat.state-thinking .bubble { opacity: 1; }
+.seat.state-thinking .bubble span { animation: blink 1.2s steps(1) infinite; }
+.seat.state-thinking .bubble span:nth-child(2) { animation-delay: .2s; }
+.seat.state-thinking .bubble span:nth-child(3) { animation-delay: .4s; }
+.seat.state-speaking .portrait { animation: bob .45s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-6px); } }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Escena ilustrada (theme.json → scene): la imagen trae la sala y la mesa */
+.stage.has-scene { aspect-ratio: 16 / 9; max-height: none; background-size: 100% 100%; background-repeat: no-repeat; }
+.stage.has-scene .hall { display: none; }
+.stage.has-scene .table { width: auto; height: auto; background: none !important; box-shadow: none !important; }
+.stage.has-scene .table::before { display: none !important; }
+body.rec .stage.has-scene { flex: 1 1 auto; width: auto; height: auto; aspect-ratio: 16 / 9; align-self: center; min-height: 0; }
+
+/* Retratos: foto (canvas), icono del rol o iniciales */
+.portrait { overflow: hidden; }
+.portrait .pic, .portrait canvas, .portrait .tile { width: 100%; height: 100%; display: block; }
+.tile { display: grid; place-items: center; }
+.tile svg { width: 52%; height: 52%; }
+
+/* Cuadro de diálogo */
+.dialog { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 18px; margin-top: 14px; min-height: 160px; cursor: pointer; }
+.dialog .line { overflow-y: auto; max-height: 260px; }
+.dialog .next, .dialog .hint { position: absolute; display: none; }
+.dialog .next { right: 16px; bottom: 10px; animation: blink 1s steps(1) infinite; }
+.dialog .hint { right: 46px; bottom: 12px; }
+.dialog.waiting .next, .dialog.waiting .hint { display: block; }
+.dialog .fullbtn { position: absolute; top: 10px; right: 14px; display: none; cursor: pointer; z-index: 2; }
+.dialog.multi .fullbtn { display: block; }
+.dialog.expanded .fullbtn { display: none; }
+.dialog.expanded .line { max-height: 46vh; }
+body.rec .dialog .fullbtn { display: none !important; }
+.sheet-said details { margin: 4px 0; }
+.sheet-said summary { cursor: pointer; }
+.sheet-text { margin: 6px 0 10px 18px; }
+body.auto .dialog .hint { display: none !important; }
+.caret { display: inline-block; animation: blink 1s steps(1) infinite; }
+
+/* Modo rápido */
+.quick-actions { display: flex; gap: 8px; margin: 14px 0; }
+.card summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.card summary::-webkit-details-marker { display: none; }
+.card .chev { transition: transform .2s; }
+.card[open] .chev { transform: rotate(90deg); }
+.card .who { display: flex; flex-direction: column; min-width: 0; }
+
+/* Acta */
+.entry { display: grid; grid-template-columns: auto 1fr; gap: 14px; }
+.entry.synth, .entry.divider { grid-template-columns: 1fr; }
+.entry.reply { margin-left: 44px; }
+.verdict .row { display: grid; grid-template-columns: 190px 1fr; gap: 12px; }
+
+/* Modo grabación: solo la escena, en 16:9, sin controles y con avance automático */
+body.rec { overflow: hidden; cursor: none; }
+body.rec .topbar .controls, body.rec .view-quick, body.rec .view-log, body.rec .dialog .hint { display: none !important; }
+body.rec .app { max-width: none; width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16));
+  padding: 1.2vh 2vw; display: flex; flex-direction: column; }
+body.rec main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.rec .view-scene { display: flex !important; flex-direction: column; flex: 1; min-height: 0; }
+body.rec .stage { flex: 1; min-height: 0; aspect-ratio: auto; max-height: none; margin-top: 5vh; }
+body.rec .topbar { flex: 0 0 auto; }
+body.rec .dialog { min-height: 0; height: 24%; }
+.rec-exit { position: fixed; right: 12px; bottom: 10px; opacity: 0; font: 12px sans-serif; color: #fff8; }
+body.rec .rec-exit { opacity: 1; }
+
+.empty { margin-top: 70px; text-align: center; }

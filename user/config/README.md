@@ -24,6 +24,14 @@ Configuracion del briefing diario que se envia por Telegram.
 | `schedules` | array | Lista de horarios. Cada uno tiene `name`, `hour`, `minute`, `days` y `sections` |
 | `sections` | object | Que incluye cada briefing: `calendar` (agenda) y `tasks` (tareas pendientes) |
 
+### `skill_council`
+
+La Sala del Consejo (panel visual del Council de `claudia-thinking`).
+
+| Key | Tipo | Qué hace |
+|---|---|---|
+| `theme` | string | Tema por defecto de La Sala: `arturo` (si no se pone), `minimal`, `retro` o uno propio de `.claude/skills/claudia-thinking/user/council-themes/` |
+
 ### `skill_intake`
 
 Configuracion del pipeline de intake (captura y procesamiento de contenido).

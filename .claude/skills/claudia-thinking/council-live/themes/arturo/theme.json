@@ -1,0 +1,38 @@
+{
+  "label": "Mesa del Rey Arturo",
+  "fonts": [
+    "https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IM+Fell+English:ital@0;1&display=swap"
+  ],
+  "pixelate": false,
+  "label_case": "normal",
+  "strings": {
+    "brand": "La Mesa Redonda",
+    "host": "Claudia, la anfitriona",
+    "enter": "{name} toma asiento",
+    "tableIdle": "Se convoca el consejo",
+    "tableLive": "El consejo delibera",
+    "tableReplies": "Réplicas",
+    "tableDone": "Decreto",
+    "replies": "Ronda de réplicas",
+    "repliesLine": "Que hablen de nuevo los caballeros: ahora se contestan entre ellos.",
+    "verdict": "Decreto del consejo",
+    "verdict2": "Decreto tras las réplicas",
+    "hint": "pulsa espacio para continuar",
+    "convoked": "Se convoca el consejo",
+    "openLine": "Caballeros, os he convocado por esta cuestión: {q}",
+    "options": "Opciones sobre la mesa",
+    "optionsLine": "He aquí los caminos que han salido en la mesa, con quién los defiende y quién les pone pegas.",
+    "backs": "la defienden",
+    "objects": "le ponen pegas"
+  },
+  "sounds": "medieval",
+  "scene": {
+    "image": "scene.webp",
+    "seats": {
+      "cx": 47.7,
+      "cy": 53,
+      "rx": 35,
+      "ry": 31
+    }
+  }
+}

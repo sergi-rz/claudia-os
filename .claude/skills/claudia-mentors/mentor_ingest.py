@@ -549,6 +549,67 @@ def _count_vault_by_author():
     return counts
 
 
+PHOTOS_DIR = REPO_ROOT / "user/config/mentor-photos"
+PHOTO_EXTS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+
+
+def _feed_image(url):
+    """URL de la imagen que publica un feed (RSS <image>, iTunes o Atom logo/icon), o None."""
+    req = urllib.request.Request(url, headers={"User-Agent": "claudia-mentors/1.0"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        root = ET.fromstring(resp.read().lstrip())
+    channel = root.find("channel")
+    if channel is not None:
+        itunes = channel.find("{http://www.itunes.com/dtds/podcast-1.0.dtd}image")
+        return channel.findtext("image/url") or (itunes.get("href") if itunes is not None else None)
+    return root.findtext(f"{ATOM_NS}logo") or root.findtext(f"{ATOM_NS}icon")
+
+
+def cmd_fetch_photos(config, mentor_filter=None, force=False):
+    """Descarga la foto de cada mentor desde la imagen de su feed, si la hay.
+
+    Es la imagen de la publicación: a veces la cara del autor, a veces un logo. Revísalas; las que
+    no sirvan se sustituyen a mano en user/config/mentor-photos/<id>.jpg."""
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    for mentor in config.get("mentors", []):
+        mid = mentor["id"]
+        if mentor_filter and mid != mentor_filter:
+            continue
+        existing = [p for p in PHOTOS_DIR.glob(f"{mid}.*")]
+        if existing and not force:
+            print(f"  {mentor['name']}: ya tiene foto ({existing[0].name})")
+            continue
+        url = None
+        for source in mentor.get("sources", []):
+            if source.get("type") != "rss":
+                continue
+            try:
+                url = _feed_image(source["url"])
+            except Exception as e:
+                print(f"  {mentor['name']}: [WARN] feed ilegible ({e})")
+            if url:
+                break
+        if not url:
+            print(f"  {mentor['name']}: sin imagen en sus fuentes (ponla a mano: {mid}.jpg)")
+            continue
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "claudia-mentors/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                ctype = (resp.headers.get_content_type() or "").lower()
+                body = resp.read()
+        except Exception as e:
+            print(f"  {mentor['name']}: [WARN] no se pudo descargar la imagen ({e})")
+            continue
+        ext = PHOTO_EXTS.get(ctype)
+        if not ext:
+            print(f"  {mentor['name']}: [WARN] formato no soportado ({ctype})")
+            continue
+        for old in existing:
+            old.unlink()
+        (PHOTOS_DIR / f"{mid}{ext}").write_bytes(body)
+        print(f"  {mentor['name']}: foto guardada ({mid}{ext}, {len(body) // 1024} KB). Revisa que sea su cara y no un logo.")
+
+
 def cmd_status(config, state):
     print("── claudia-mentors status ──")
     counts = _count_vault_by_author()
@@ -571,6 +632,8 @@ def main():
     parser.add_argument("--gmail-max", type=int, default=20, help="Máximo de emails a buscar en Gmail por backfill (default: 20)")
     parser.add_argument("--direct", action="store_true", help="Escribe directamente al vault sin intake ni claude -p (0 tokens)")
     parser.add_argument("--collect", action="store_true", help="Recoge emails en JSON para procesado interactivo con Claude en el chat")
+    parser.add_argument("--fetch-photos", action="store_true", help="Descarga la foto de cada mentor desde la imagen de su feed")
+    parser.add_argument("--force", action="store_true", help="Con --fetch-photos, sustituye las fotos que ya haya")
     args = parser.parse_args()
 
     _load_env()
@@ -579,6 +642,10 @@ def main():
 
     if args.status:
         cmd_status(config, state)
+        return
+
+    if args.fetch_photos:
+        cmd_fetch_photos(config, mentor_filter=args.mentor, force=args.force)
         return
 
     if args.collect:

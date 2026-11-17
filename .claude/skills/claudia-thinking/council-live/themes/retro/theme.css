@@ -1,0 +1,135 @@
+/* Tema: 16 bits. RPG de consola portátil: sala de castillo en pixel art (scene.webp),
+   cajas blancas con doble borde y letra pixelada legible (Pixelify Sans, con tildes). */
+
+body.theme-retro {
+  --ink: #2a2d3a; --page: #0d1130; --line: #2c3352; --frame: #4a5578; --frame-l: #a8c8f0; --white: #f8f8f4;
+  --gold: #f6c945; --red: #e0483e; --blue: #2f5fb3; --muted: #6b7088;
+  --rebate: #e0483e; --completa: #3aa655; --matiza: #3b7fd9; --responde: #8a7ad8;
+  --tile-s: 55%; --tile-l: 66%;
+  --ui: "Pixelify Sans", ui-monospace, monospace;      /* títulos, nombres y botones */
+  --read: "Jersey 10", "Pixelify Sans", ui-monospace, monospace;   /* todo lo que se lee */
+  color: #eef0ff; font-family: var(--read);
+  background: radial-gradient(ellipse at 50% 0%, #1c2458 0%, var(--page) 70%);
+  background-attachment: fixed;
+}
+.theme-retro .title { font-family: var(--ui); font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; text-shadow: 2px 2px 0 #000; }
+.theme-retro .question { margin: 6px 0 0; font-family: var(--ui); font-size: 26px; font-weight: 700; line-height: 1.25; color: #fff; text-shadow: 3px 3px 0 #000; }
+.theme-retro .status { margin-top: 4px; font-size: 21px; color: #b8bde0; }
+.theme-retro .status b { color: var(--gold); font-weight: 600; }
+
+/* Botones: cajas blancas con borde oscuro */
+.theme-retro .controls button, .theme-retro .controls select, .theme-retro .quick-actions button {
+  font-family: var(--ui); font-size: 15px; font-weight: 600; color: var(--ink); background: var(--white);
+  border: 3px solid var(--line); border-radius: 6px; padding: 4px 10px; box-shadow: inset 0 -3px 0 #d6d8e6, 0 3px 0 #000; }
+.theme-retro .controls button.active { background: var(--gold); box-shadow: inset 0 -3px 0 #c99a1e, 0 3px 0 #000; }
+.theme-retro .tabs button { border-radius: 0; margin-left: -3px; }
+.theme-retro .tabs button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.theme-retro .tabs button:last-child { border-radius: 0 6px 6px 0; }
+
+/* Escena */
+.theme-retro .stage { border-radius: 8px; box-shadow: 0 0 0 4px #000, 0 0 0 8px var(--frame), 0 14px 30px rgba(0, 0, 0, .6); }
+.theme-retro .emblem { display: none; }
+.theme-retro .table-label { transform: translateY(46px); font-family: var(--ui); font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 1px; text-transform: uppercase;
+  text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 2px 2px 0 #000; }
+
+.theme-retro .seat .portrait { width: 70px; height: 70px; border-radius: 8px; background: var(--white);
+  border: 3px solid var(--white); box-shadow: 0 0 0 3px #000, 0 6px 0 3px rgba(0, 0, 0, .35); }
+.theme-retro .seat .pic, .theme-retro .seat canvas, .theme-retro .seat .tile { border-radius: 5px; }
+.theme-retro .seat.kind-real .portrait { border-color: var(--gold); background: var(--gold); }
+.theme-retro .seat.kind-inferida .portrait { border-color: #c79bff; background: #c79bff; }
+.theme-retro .seat { transition: filter .3s; }
+.theme-retro .seat.state-waiting { filter: saturate(.45) brightness(.7); }
+.theme-retro .seat.state-speaking .portrait { box-shadow: 0 0 0 3px #000, 0 0 0 7px var(--gold), 0 0 24px 8px rgba(246, 201, 69, .55); }
+.theme-retro .tile { color: #1b1e2e; font-weight: 700; font-size: 22px; }
+.theme-retro .plate { display: inline-block; margin-top: 7px; padding: 2px 8px 3px; background: var(--white); color: var(--ink);
+  border: 3px solid #000; border-radius: 6px; box-shadow: 0 3px 0 rgba(0, 0, 0, .4); max-width: 160px; }
+.theme-retro .plate .name { display: block; font-family: var(--ui); font-size: 14px; font-weight: 700; line-height: 1.2; }
+.theme-retro .plate .kind { display: block; font-size: 16px; color: var(--muted); white-space: nowrap; }
+.theme-retro .seat.kind-real .plate .kind { color: #b07d06; } .theme-retro .seat.kind-inferida .plate .kind { color: #7a4fc0; }
+.theme-retro .bubble { background: var(--white); color: var(--ink); border: 3px solid #000; border-radius: 10px; padding: 0 8px; font-family: var(--ui); font-size: 16px; font-weight: 700; }
+.theme-retro .bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; margin-left: -5px; border: 5px solid transparent; border-top-color: #000; }
+
+.theme-retro .beam .ray { stroke-width: 5; stroke-dasharray: 10 8; animation: march .6s linear infinite; stroke: var(--responde); }
+.theme-retro .beam .glow { stroke-width: 14; opacity: .25; stroke: var(--responde); }
+.theme-retro .beam .type-rebate { stroke: var(--rebate); } .theme-retro .beam .type-completa { stroke: var(--completa); } .theme-retro .beam .type-matiza { stroke: var(--matiza); }
+@keyframes march { to { stroke-dashoffset: -18; } }
+.theme-retro .legend { margin: 0 10px 8px 0; padding: 3px 8px; background: var(--white); color: var(--ink); border: 3px solid #000; border-radius: 6px; font-size: 18px; }
+.theme-retro .legend-item.type-rebate i { background: var(--rebate); } .theme-retro .legend-item.type-completa i { background: var(--completa); }
+.theme-retro .legend-item.type-matiza i { background: var(--matiza); } .theme-retro .legend-item.type-responde i { background: var(--responde); }
+
+.theme-retro .toast span { display: inline-block; padding: 6px 16px; font-family: var(--ui); font-size: 19px; font-weight: 700; color: var(--ink); background: var(--white);
+  border: 4px solid #000; border-radius: 8px; box-shadow: inset 0 0 0 3px var(--frame-l); }
+.theme-retro .decree { padding: 14px 18px; color: var(--ink); background: var(--white); border: 4px solid #000; border-radius: 10px;
+  box-shadow: inset 0 0 0 4px var(--frame-l), 0 8px 0 rgba(0, 0, 0, .35); font-size: 25px; line-height: 1.2; text-align: center; }
+.theme-retro .decree h3 { margin: 0 0 6px; font-family: var(--ui); font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--blue); text-transform: uppercase; }
+.theme-retro .decree p { margin: 0; }
+
+/* Cuadro de diálogo de RPG portátil: blanco, doble borde, esquinas redondeadas */
+.theme-retro .dialog { padding: 16px 22px 18px 16px; color: var(--ink); background: var(--white);
+  border: 5px solid #000; border-radius: 14px; box-shadow: inset 0 0 0 4px var(--frame-l), inset 0 0 0 7px var(--white), 0 8px 0 rgba(0, 0, 0, .4); }
+.theme-retro .dialog .portrait { width: 104px; height: 104px; border-radius: 10px; border: 4px solid var(--frame); background: var(--frame); }
+.theme-retro .dialog .portrait.kind-real { border-color: var(--gold); background: var(--gold); }
+.theme-retro .dialog .portrait canvas, .theme-retro .dialog .portrait .tile { border-radius: 6px; }
+.theme-retro .dialog .portrait.kind-host .tile { background: var(--blue) !important; color: #fff; }
+.theme-retro .dialog .tile { font-size: 30px; }
+.theme-retro .speaker { margin-bottom: 6px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.theme-retro .speaker .who { font-family: var(--ui); font-size: 19px; font-weight: 700; color: var(--blue); }
+.theme-retro .speaker .to { font-size: 20px; font-weight: 600; }
+.theme-retro .line { font-size: 29px; line-height: 1.22; letter-spacing: .2px; }
+.theme-retro .line p { margin: 0 0 8px; }
+.theme-retro .next { color: var(--red); font-size: 20px; }
+.theme-retro .hint { font-size: 17px; color: var(--muted); }
+.theme-retro .caret { color: var(--ink); }
+.theme-retro .cite { color: #b0281f; } .theme-retro a.cite { text-decoration: underline; text-decoration-style: dotted; }
+.theme-retro .date { color: #1f7a5a; }
+.theme-retro .to.type-rebate { color: var(--rebate) !important; } .theme-retro .to.type-completa { color: var(--completa) !important; }
+.theme-retro .to.type-matiza { color: var(--matiza) !important; } .theme-retro .to.type-responde { color: var(--responde) !important; }
+.theme-retro .verdict .row { margin-bottom: 6px; }
+.theme-retro .verdict .label { font-family: var(--ui); font-size: 14px; font-weight: 700; color: var(--blue); text-transform: uppercase; padding-top: 4px; }
+.theme-retro .verdict p { margin: 0; }
+.theme-retro .fullbtn { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--ink); background: var(--gold); border: 3px solid #000; border-radius: 6px; padding: 1px 8px; }
+
+/* Tablero de opciones */
+.theme-retro .option { padding: 7px 9px 9px; color: var(--ink); background: var(--white); border: 3px solid #000; border-radius: 8px;
+  box-shadow: inset 0 0 0 3px var(--frame-l), 0 5px 0 rgba(0, 0, 0, .4); }
+.theme-retro .opt-title { font-family: var(--ui); font-size: 15px; font-weight: 700; color: var(--blue); line-height: 1.15; }
+.theme-retro .opt-detail { font-size: 19px; line-height: 1.1; margin-top: 2px; }
+.theme-retro .mini { border-radius: 5px; border: 3px solid var(--completa); }
+.theme-retro .mini.con { border-color: var(--rebate); }
+.theme-retro .mini .tile { font-size: 9px; font-weight: 700; color: #1b1e2e; }
+
+/* Rápido, acta y ficha: cajas blancas como el diálogo */
+.theme-retro .card, .theme-retro .entry { margin-bottom: 10px; color: var(--ink); background: var(--white); border: 4px solid #000; border-radius: 10px;
+  box-shadow: inset 0 0 0 3px var(--frame-l), 0 5px 0 rgba(0, 0, 0, .35); font-size: 24px; line-height: 1.22; }
+.theme-retro .card summary { padding: 10px 14px; }
+.theme-retro .card .portrait, .theme-retro .entry .portrait { width: 48px; height: 48px; border-radius: 6px; border: 3px solid var(--frame); background: var(--frame); }
+.theme-retro .card.kind-real .portrait, .theme-retro .entry.kind-real .portrait { border-color: var(--gold); background: var(--gold); }
+.theme-retro .card .tile, .theme-retro .entry .tile { font-size: 14px; }
+.theme-retro .card.synth .tile { background: var(--blue) !important; color: #fff; }
+.theme-retro .card .name, .theme-retro .entry h4 { font-family: var(--ui); font-size: 16px; font-weight: 700; color: var(--blue); }
+.theme-retro .card .headline { font-size: 23px; }
+.theme-retro .card .chev { font-size: 24px; color: var(--red); }
+.theme-retro .card .text { padding: 0 18px 12px 76px; }
+.theme-retro .card.reply, .theme-retro .entry.reply { margin-left: 44px; border-left-width: 10px; }
+.theme-retro .card.reply.type-rebate, .theme-retro .entry.reply.type-rebate { border-left-color: var(--rebate); }
+.theme-retro .card.reply.type-completa, .theme-retro .entry.reply.type-completa { border-left-color: var(--completa); }
+.theme-retro .card.reply.type-matiza, .theme-retro .entry.reply.type-matiza { border-left-color: var(--matiza); }
+.theme-retro .card.synth, .theme-retro .entry.synth { box-shadow: inset 0 0 0 3px var(--gold), 0 5px 0 rgba(0, 0, 0, .35); }
+.theme-retro .quick-divider, .theme-retro .entry.divider { margin: 18px 0 10px; text-align: center; font-family: var(--ui); font-size: 17px; font-weight: 700; color: var(--gold);
+  text-transform: uppercase; text-shadow: 2px 2px 0 #000; background: none; border: 0; box-shadow: none; }
+.theme-retro .view-log { margin-top: 16px; }
+.theme-retro .entry { padding: 12px 16px; }
+.theme-retro .entry p { margin: 0 0 6px; }
+.theme-retro .sources { font-size: 20px; color: var(--muted); } .theme-retro .sources a { color: var(--blue); }
+.theme-retro .options-list .label { margin-top: 10px; font-family: var(--ui); font-size: 14px; font-weight: 700; color: var(--blue); text-transform: uppercase; }
+.theme-retro .pro-txt { color: var(--completa); } .theme-retro .con-txt { color: var(--rebate); }
+.theme-retro .sheet-card { padding: 20px 22px; color: var(--ink); background: var(--white); border: 5px solid #000; border-radius: 14px;
+  box-shadow: inset 0 0 0 4px var(--frame-l), 0 10px 0 rgba(0, 0, 0, .45); font-size: 24px; line-height: 1.22; }
+.theme-retro .sheet-portrait { border-radius: 10px; border: 4px solid var(--gold); background: var(--gold); }
+.theme-retro .sheet-name { font-family: var(--ui); font-size: 24px; font-weight: 700; color: var(--blue); }
+.theme-retro .sheet-kind { color: var(--muted); }
+.theme-retro .sheet-h { margin-top: 12px; font-family: var(--ui); font-size: 14px; font-weight: 700; color: var(--red); text-transform: uppercase; }
+.theme-retro .sheet-card ul { margin: 4px 0 0; padding-left: 22px; } .theme-retro .sheet-card a { color: var(--blue); }
+.theme-retro .sheet-text { font-size: 22px; }
+.theme-retro .sheet-close { background: none; border: 0; font-size: 20px; font-weight: 700; color: var(--ink); }
+.theme-retro .empty { font-size: 20px; color: #b8bde0; }
