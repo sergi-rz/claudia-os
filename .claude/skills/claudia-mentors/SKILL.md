@@ -111,12 +111,22 @@ Cada mentor tiene una o más fuentes en `user/config/mentors.json`:
 | `api` | `url` de un endpoint JSON que devuelve la pieza del día; `credentials_key` (variable de `user/credentials/.env` con el token Bearer); `fields` opcional | Cada pasada diaria |
 
 - **YouTube:** el feed de un canal es
-  `https://www.youtube.com/feeds/videos.xml?channel_id=<id>`, como fuente `rss`.
+  `https://www.youtube.com/feeds/videos.xml?channel_id=<id>`, como fuente `rss`. Los shorts se
+  omiten siempre; para incluirlos, `"include_shorts": true` en la fuente.
+- **Filtros de una fuente `rss` (opcionales):**
+  - `exclude_title`: expresiones regulares; se omite la pieza cuyo título encaje (recopilaciones,
+    secciones fijas que no son opinión del autor).
+  - `min_content_chars`: se omite la pieza cuyo cuerpo en el feed sea más corto. Sirve para las
+    piezas de pago de Substack, que llegan al feed con solo unas líneas.
+  - `use_feed_content: true`: usa el texto del propio feed (limpio de HTML y cortado en el pie) en
+    vez de que la intake descargue la página. Para newsletters cuya web trae mucho ruido, como las
+    de Mailchimp.
+- **Fecha:** cada pieza llega al vault con su fecha de publicación, no la del día en que se procesa.
 - **`fields` (api):** por defecto se esperan los campos `id`, `title`, `date`, `content` y `url`. Si el
   endpoint usa otros nombres, mapéalos: `"fields": {"id": "post_id", "title": "titulo"}`.
 - **`footer_patterns` (por mentor, opcional):** expresiones regulares que marcan dónde empieza el pie
-  de sus correos. Solo se usan en `--direct`. Las genéricas («darse de baja», «unsubscribe», «© 20xx»)
-  ya vienen incluidas.
+  de sus correos o newsletters. Se usan en `--direct` y con `use_feed_content`. Las genéricas
+  («darse de baja», «unsubscribe», «© 20xx») ya vienen incluidas.
 - **`topic_keywords` (raíz del fichero, opcional):** mapa `topic → palabras clave` para clasificar
   en `--direct`. Si no está, se usa uno genérico.
 
@@ -129,6 +139,8 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
 2. Comprueba que la fuente funciona antes de darla de alta: que el feed responda y tenga piezas
    recientes, o que la búsqueda de Gmail devuelva sus correos. Un feed puede responder bien y
    llevar años congelado.
+   Mira también si escribe desde su opinión o sobre todo resume a otros: en el Council, un autor
+   que solo divulga suena igual que el resto. Lee dos o tres piezas recientes antes de decidir.
 3. Añade la entrada a `user/config/mentors.json` (`id`, `name`, `description`, `tags`, `sources`).
    El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
 4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.

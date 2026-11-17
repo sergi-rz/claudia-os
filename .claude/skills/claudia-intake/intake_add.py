@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--title", default=None, help="Título si se conoce")
     parser.add_argument("--author", default=None, help="Autor del contenido (para mentors)")
     parser.add_argument("--pre-content", default=None, help="Contenido ya extraído (evita fetch)")
+    parser.add_argument("--date", default=None, help="Fecha de publicación YYYY-MM-DD (va al vault; si no, la del procesado)")
     parser.add_argument("--promote-feed", help="Promover items feed_new por índice (ej: 2,5,7)")
     args = parser.parse_args()
 
@@ -42,6 +43,7 @@ def main():
             title=args.title,
             author=args.author,
             pre_content=args.pre_content,
+            published=args.date,
         )
         if item:
             print(json.dumps({"status": "queued", "id": item["id"], "url": item["url"]}, ensure_ascii=False))

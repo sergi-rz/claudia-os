@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -44,7 +45,10 @@ TRANSIENT_ERROR_PATTERNS = [
     "connection reset",
     "temporary failure",
     "resource temporarily unavailable",
+    "429",                 # rate limit (Substack lo da al bajar muchas páginas seguidas)
+    "too many requests",
 ]
+FETCH_PAUSE_SECONDS = 2  # pausa entre descargas, para no disparar el rate limit de los sitios
 
 
 def _is_transient_error(error):
@@ -224,8 +228,11 @@ def _save_wisdom_file(item_id, wisdom, extraction, today):
     """Guarda un fichero wisdom en el vault."""
     VAULT_WISDOM.mkdir(parents=True, exist_ok=True)
 
+    # La fecha del vault es la de publicación si se conoce; si no, la del procesado.
+    published = extraction.get("published")
+    date = published if published and re.match(r"^\d{4}-\d{2}-\d{2}$", str(published)) else today
     slug = wisdom.get("slug", _slugify(wisdom.get("title", item_id)))
-    filename = f"{today}_{slug}.md"
+    filename = f"{date}_{slug}.md"
     filepath = VAULT_WISDOM / filename
 
     title = wisdom.get("title", extraction.get("title", "Sin titulo"))
@@ -243,7 +250,7 @@ def _save_wisdom_file(item_id, wisdom, extraction, today):
         f'type: {content_type}\n'
         f'author: "{author}"\n'
         f'title: "{title}"\n'
-        f'date: {today}\n'
+        f'date: {date}\n'
         f'topics: {topics_str}\n'
         f'quality: {quality}\n'
         f'origin: intake\n'
@@ -378,6 +385,7 @@ def _pre_extract(items):
     """Fase 1: marca los items como 'processing' y extrae su contenido. Devuelve {id: extraction}."""
     print("Fase 1: Pre-extraccion de contenido...")
     extractions = {}
+    fetched = 0
     for item in items:
         update_status(item["id"], "processing")
 
@@ -390,15 +398,21 @@ def _pre_extract(items):
                 "title": item.get("title") or "",
                 "author": item.get("author") or "Desconocido",
                 "content_type": "newsletter",
+                "published": item.get("published"),
             }
             continue
 
+        if fetched:
+            time.sleep(FETCH_PAUSE_SECONDS)
+        fetched += 1
         print(f"  Extrayendo: {item['url'][:60]}...")
         try:
             result = extract_content(item["url"])
             # Si el item tiene author explícito (de mentors), priorizarlo
             if item.get("author") and not result.get("author"):
                 result["author"] = item["author"]
+            if item.get("published"):
+                result["published"] = item["published"]
             if result.get("text"):
                 extractions[item["id"]] = result
                 if result.get("title") and not item.get("title"):

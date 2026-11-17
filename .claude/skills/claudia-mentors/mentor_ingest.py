@@ -92,6 +92,8 @@ def _enqueue(item, mentor, dry_run=False):
         "--title", item["title"],
         "--author", mentor["name"],
     ]
+    if item.get("date"):
+        cmd += ["--date", item["date"]]
     if item.get("content"):
         cmd += ["--pre-content", item["content"]]
 
@@ -241,6 +243,7 @@ def _fetch_api(source):
 
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
+CONTENT_NS = "{http://purl.org/rss/1.0/modules/content/}"
 
 
 def _atom_entries(root):
@@ -255,7 +258,8 @@ def _atom_entries(root):
         date_raw = entry.findtext(f"{ATOM_NS}published") or entry.findtext(f"{ATOM_NS}updated") or ""
         date_str = date_raw[:10] if re.match(r"\d{4}-\d{2}-\d{2}", date_raw) \
             else datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        yield guid, entry.findtext(f"{ATOM_NS}title") or "", link, date_str
+        body = entry.findtext(f"{ATOM_NS}content") or entry.findtext(f"{ATOM_NS}summary") or ""
+        yield guid, entry.findtext(f"{ATOM_NS}title") or "", link, date_str, body
 
 
 def _rss_entries(channel):
@@ -266,11 +270,43 @@ def _rss_entries(channel):
             date_str = parsedate_to_datetime(entry.findtext("pubDate") or "").strftime("%Y-%m-%d")
         except Exception:
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        yield guid, entry.findtext("title") or "", entry.findtext("link") or "", date_str
+        body = entry.findtext(f"{CONTENT_NS}encoded") or entry.findtext("description") or ""
+        yield guid, entry.findtext("title") or "", entry.findtext("link") or "", date_str, body
 
 
-def _fetch_rss(source, state_ids, limit=None):
-    """Fetch from an RSS 2.0 or Atom feed. Returns list of normalized items."""
+def _skip_reason(source, title, link, body_len):
+    """Filtros de una fuente rss. Devuelve el motivo para saltar la pieza, o None."""
+    if "/shorts/" in link and not source.get("include_shorts"):
+        return "short"
+    for pattern in source.get("exclude_title", []):
+        if re.search(pattern, title, re.IGNORECASE):
+            return "título excluido"
+    min_chars = source.get("min_content_chars")
+    if min_chars and body_len < min_chars:
+        return "contenido corto (¿de pago?)"
+    return None
+
+
+def _html_to_text(raw: str) -> str:
+    """Texto legible de un cuerpo HTML de feed (newsletters con mucho CSS, como las de Mailchimp)."""
+    import html as _html
+    t = re.sub(r"(?is)<(style|script|head)[^>]*>.*?</\1>", " ", raw)
+    t = re.sub(r"(?i)<br\s*/?>|</p>|</h\d>|</li>|</div>|</tr>", "\n", t)
+    t = _html.unescape(re.sub(r"<[^>]+>", " ", t))
+    lines = []
+    for line in t.splitlines():
+        line = re.sub(r"[ \t\xa0]+", " ", line).strip()
+        if line in ("-->", "<!--") or re.search(r'\b(style|target|href)="', line):
+            continue  # restos de comentarios condicionales y atributos rotos
+        lines.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def _fetch_rss(source, state_ids, limit=None, footer_patterns=None):
+    """Fetch from an RSS 2.0 or Atom feed. Returns list of normalized items.
+
+    Por defecto solo trae título y enlace: la intake descarga la página. Con
+    "use_feed_content": true se usa el cuerpo del feed (limpio de HTML y cortado en el pie)."""
     url = source["url"]
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "claudia-mentors/1.0"})
@@ -296,9 +332,14 @@ def _fetch_rss(source, state_ids, limit=None):
         entries = _rss_entries(channel)
 
     items = []
-    for guid, title, link, date_str in entries:
+    skipped = {}
+    for guid, title, link, date_str, body in entries:
         guid = guid.split("?")[0].rstrip("/")
         if guid in state_ids:
+            continue
+        reason = _skip_reason(source, title, link, len(body))
+        if reason:
+            skipped[reason] = skipped.get(reason, 0) + 1
             continue
         # YouTube's watch URLs carry the video id in the query string: keep it.
         if "youtube.com/watch" not in link:
@@ -308,13 +349,16 @@ def _fetch_rss(source, state_ids, limit=None):
             "id": guid,
             "title": title,
             "date": date_str,
-            "content": "",  # intake scrapeará la URL directamente
+            "content": _clean_email_body(_html_to_text(body), footer_patterns or [])
+                       if source.get("use_feed_content") else "",  # si no, la intake descarga la URL
             "url": link,
         })
 
         if limit and len(items) >= limit:
             break
 
+    if skipped:
+        print("  Omitidos por filtros: " + ", ".join(f"{n} {r}" for r, n in skipped.items()))
     return items
 
 
@@ -416,7 +460,8 @@ def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gma
 
         elif src_type == "rss" and not backfill:
             print(f"  Fetching RSS...")
-            items = _fetch_rss(source, processed_ids, limit=limit)
+            items = _fetch_rss(source, processed_ids, limit=limit,
+                               footer_patterns=mentor.get("footer_patterns", []))
             print(f"  RSS: {len(items)} item(s) nuevos")
             for item in items:
                 if _vault_file_exists(item["date"], item["title"]):

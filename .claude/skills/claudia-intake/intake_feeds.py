@@ -139,6 +139,11 @@ def poll_feed(feed, state, dry_run=False):
         if entry_id in seen_ids:
             continue
 
+        # Shorts de YouTube fuera, salvo que el feed pida lo contrario ("include_shorts": true)
+        if "/shorts/" in (entry_link or "") and not feed.get("include_shorts"):
+            new_ids.append(entry_id)
+            continue
+
         # Check duplicado en la cola también
         if entry_link and is_duplicate(entry_link):
             new_ids.append(entry_id)  # Marcar como visto aunque ya esté en cola
