@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
 Claudia OS — Intake Processor
-Lee items 'new' de la cola, pre-extrae contenido, lanza claude -p
-para wisdom synthesis, guarda en vault.
+Lee items 'new' de la cola, pre-extrae contenido, sintetiza el wisdom y lo guarda en el vault.
+
+Dos formas de sintetizar, según quién ejecute:
+- Cron (servidor): el script lanza `claude -p` por su cuenta.
+- Agente (tarea de la app de escritorio, o en el chat): el agente que ya está en marcha hace la
+  síntesis. Nunca se lanza otro Claude por debajo.
 
 Uso:
-    python3 intake_process.py              # Procesar cola
+    python3 intake_process.py              # Cron: procesar cola con claude -p
     python3 intake_process.py --dry-run    # Ver qué se procesaría
     python3 intake_process.py --max 3      # Limitar a N items
+    python3 intake_process.py --prepare    # Agente, paso 1: pre-extrae y deja el lote para sintetizar
+    python3 intake_process.py --save       # Agente, paso 2: guarda en el vault lo que sintetizó
 """
 
 import argparse
@@ -27,6 +33,8 @@ from intake_queue import get_items, update_status, get_stats, _now_iso
 from intake_extract import extract_content
 
 BATCH_SIZE = 5  # Max items por llamada a Claude
+AGENT_BATCH = REPO_ROOT / "user" / "vault" / ".index" / "intake_batch.json"
+AGENT_RESULT = REPO_ROOT / "user" / "vault" / ".index" / "intake_batch_result.json"
 STUCK_AFTER_HOURS = 2  # Antigüedad tras la que un item 'processing' se da por abandonado
 
 TRANSIENT_ERROR_PATTERNS = [
@@ -343,10 +351,8 @@ def _rescue_stuck(max_age_hours=STUCK_AFTER_HOURS):
     return rescued, closed
 
 
-def process_queue(max_items=None, dry_run=False):
-    """Procesa items 'new' de la cola."""
-    _load_env()
-
+def _pending_items(max_items=None):
+    """Reintenta errores transitorios, rescata items abandonados y devuelve los 'new'."""
     # Auto-retry: resetear items con errores transitorios
     failed = get_items(status="failed")
     retried = 0
@@ -363,21 +369,13 @@ def process_queue(max_items=None, dry_run=False):
         print(f"Rescate: {rescued} reencolados, {closed} ya estaban en el vault\n")
 
     items = get_items(status="new")
-    if not items:
-        print("No hay items pendientes en la cola.")
-        return []
-
     if max_items:
         items = items[:max_items]
+    return items
 
-    print(f"Procesando {len(items)} items...\n")
 
-    if dry_run:
-        for item in items:
-            print(f"  [DRY] {item['url'][:80]} ({item['source']})")
-        return []
-
-    # Phase 1: Pre-extract content
+def _pre_extract(items):
+    """Fase 1: marca los items como 'processing' y extrae su contenido. Devuelve {id: extraction}."""
     print("Fase 1: Pre-extraccion de contenido...")
     extractions = {}
     for item in items:
@@ -419,28 +417,39 @@ def process_queue(max_items=None, dry_run=False):
             print(f"  [FAIL] {e}")
             update_status(item["id"], "failed", error=str(e)[:200], failed_at=_now_iso())
 
-    if not extractions:
-        print("\nNo se pudo extraer contenido de ningun item.")
-        return []
+    return extractions
 
-    # Phase 2: Wisdom synthesis via claude -p (en batches)
+
+def _batches(extractions):
+    """Trocea las extracciones en lotes de BATCH_SIZE: [(ids, prompt), ...]."""
+    ids = list(extractions.keys())
+    out = []
+    for start in range(0, len(ids), BATCH_SIZE):
+        batch_ids = ids[start:start + BATCH_SIZE]
+        out.append((batch_ids, _build_wisdom_prompt({k: extractions[k] for k in batch_ids})))
+    return out
+
+
+def _synthesize_with_cli(extractions):
+    """Fase 2 (solo cron): sintetiza con `claude -p`. Devuelve {id: wisdom}."""
     print(f"\nFase 2: Wisdom synthesis ({len(extractions)} items)...")
     all_wisdoms = {}
-    extraction_ids = list(extractions.keys())
+    batches = _batches(extractions)
 
-    for batch_start in range(0, len(extraction_ids), BATCH_SIZE):
-        batch_ids = extraction_ids[batch_start:batch_start + BATCH_SIZE]
-        batch = {k: extractions[k] for k in batch_ids}
-
-        print(f"  Batch {batch_start // BATCH_SIZE + 1}: {len(batch)} items...")
-        prompt = _build_wisdom_prompt(batch)
-
+    for n, (batch_ids, prompt) in enumerate(batches, 1):
+        print(f"  Batch {n}: {len(batch_ids)} items...")
         try:
             result = subprocess.run(
                 ["claude", "-p", prompt, "--output-format", "json", "--max-turns", "5"],
                 capture_output=True, text=True, timeout=300,
                 cwd=str(REPO_ROOT),
             )
+            if result.returncode != 0:
+                # p. ej. «OAuth session expired»: los items quedan en 'processing' y el rescate
+                # los devuelve a la cola pasadas STUCK_AFTER_HOURS.
+                print(f"  [ERROR] claude -p salió con código {result.returncode}: "
+                      f"{(result.stderr or result.stdout).strip()[:300]}")
+                continue
             wisdoms = _parse_claude_output(result.stdout)
             all_wisdoms.update(wisdoms)
         except subprocess.TimeoutExpired:
@@ -452,6 +461,11 @@ def process_queue(max_items=None, dry_run=False):
             for item_id in batch_ids:
                 update_status(item_id, "failed", error=str(e)[:200], failed_at=_now_iso())
 
+    return all_wisdoms
+
+
+def _finish(extractions, all_wisdoms, items):
+    """Fases 3 a 5: guarda en el vault, reindexa y hace commit. Devuelve los items procesados."""
     if not all_wisdoms:
         print("\nNo se pudo generar wisdom de ningun item.")
         return []
@@ -527,12 +541,120 @@ def process_queue(max_items=None, dry_run=False):
     return processed_items
 
 
+def process_queue(max_items=None, dry_run=False):
+    """Cron: procesa la cola de principio a fin, sintetizando con `claude -p`."""
+    _load_env()
+    items = _pending_items(max_items)
+    if not items:
+        print("No hay items pendientes en la cola.")
+        return []
+
+    print(f"Procesando {len(items)} items...\n")
+    if dry_run:
+        for item in items:
+            print(f"  [DRY] {item['url'][:80]} ({item['source']})")
+        return []
+
+    extractions = _pre_extract(items)
+    if not extractions:
+        print("\nNo se pudo extraer contenido de ningun item.")
+        return []
+    return _finish(extractions, _synthesize_with_cli(extractions), items)
+
+
+def prepare_batch(max_items=None):
+    """Agente, paso 1: pre-extrae y escribe el lote que el agente tiene que sintetizar."""
+    _load_env()
+    if AGENT_BATCH.exists():
+        age_h = (datetime.now(timezone.utc).timestamp() - AGENT_BATCH.stat().st_mtime) / 3600
+        if age_h < STUCK_AFTER_HOURS:
+            print(f"Ya hay un lote sin guardar en {AGENT_BATCH.relative_to(REPO_ROOT)} "
+                  f"(de hace {age_h:.1f} h). Termínalo con --save antes de preparar otro.")
+            return 1
+        # Más viejo: sus items ya los ha devuelto a la cola el rescate de _pending_items.
+
+    items = _pending_items(max_items)
+    if not items:
+        print("No hay items pendientes en la cola.")
+        AGENT_BATCH.unlink(missing_ok=True)
+        return 0
+
+    print(f"Preparando {len(items)} items...\n")
+    extractions = _pre_extract(items)
+    if not extractions:
+        print("\nNo se pudo extraer contenido de ningun item.")
+        return 0
+
+    batch = {
+        "created_at": _now_iso(),
+        "result_path": str(AGENT_RESULT.relative_to(REPO_ROOT)),
+        "instructions": (
+            "Para cada lote de 'batches', haz lo que pide su 'prompt'. Junta las respuestas de "
+            "todos los lotes en un único objeto JSON {item_id: wisdom} y escríbelo en "
+            "'result_path'. Después ejecuta: python3 .claude/skills/claudia-intake/intake_process.py --save"
+        ),
+        "batches": [{"ids": ids, "prompt": prompt} for ids, prompt in _batches(extractions)],
+        "extractions": extractions,
+        "items": [{"id": i["id"], "title": i.get("title", "")} for i in items if i["id"] in extractions],
+    }
+    AGENT_BATCH.parent.mkdir(parents=True, exist_ok=True)
+    AGENT_BATCH.write_text(json.dumps(batch, ensure_ascii=False, indent=2))
+    AGENT_RESULT.unlink(missing_ok=True)
+    print(f"\nLote listo: {len(extractions)} items en {len(batch['batches'])} tanda(s).")
+    print(f"Sintetiza siguiendo {AGENT_BATCH.relative_to(REPO_ROOT)} y escribe el resultado en "
+          f"{AGENT_RESULT.relative_to(REPO_ROOT)}; luego --save.")
+    return 0
+
+
+def save_batch(result_path=None):
+    """Agente, paso 2: guarda en el vault el wisdom que sintetizó el agente."""
+    _load_env()
+    if not AGENT_BATCH.exists():
+        print("No hay ningún lote preparado. Ejecuta antes --prepare.")
+        return 1
+    result_file = Path(result_path) if result_path else AGENT_RESULT
+    if not result_file.is_absolute():
+        result_file = REPO_ROOT / result_file
+    if not result_file.exists():
+        print(f"No encuentro el resultado en {result_file}. Escríbelo antes de --save.")
+        return 1
+
+    batch = json.loads(AGENT_BATCH.read_text())
+    wisdoms = _parse_claude_output(result_file.read_text())
+    if not isinstance(wisdoms, dict) or not wisdoms:
+        print("El resultado no es un objeto JSON {item_id: wisdom} válido. No se guarda nada.")
+        return 1
+
+    extractions = batch["extractions"]
+    processed = _finish(extractions, wisdoms, batch["items"])
+
+    # Lo que el agente no sintetizó vuelve a la cola para el siguiente intento.
+    missing = [i for i in extractions if i not in wisdoms]
+    for item_id in missing:
+        update_status(item_id, "new", error=None)
+    if missing:
+        print(f"Sin wisdom en el resultado: {len(missing)} item(s), devueltos a la cola.")
+
+    AGENT_BATCH.unlink(missing_ok=True)
+    result_file.unlink(missing_ok=True)
+    return 0 if processed else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description="Intake Processor")
-    parser.add_argument("--dry-run", action="store_true", help="Ver qué se procesaría")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="Ver qué se procesaría")
+    mode.add_argument("--prepare", action="store_true",
+                      help="Agente: pre-extrae y deja el lote para que lo sintetice el agente")
+    mode.add_argument("--save", nargs="?", const="", metavar="RESULTADO",
+                      help="Agente: guarda en el vault el resultado (por defecto intake_batch_result.json)")
     parser.add_argument("--max", type=int, help="Limitar a N items")
     args = parser.parse_args()
 
+    if args.prepare:
+        sys.exit(prepare_batch(max_items=args.max))
+    if args.save is not None:
+        sys.exit(save_batch(args.save or None))
     process_queue(max_items=args.max, dry_run=args.dry_run)
 
 

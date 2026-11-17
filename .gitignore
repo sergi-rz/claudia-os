@@ -67,3 +67,9 @@ venv/
 # Ficheros de audio/vídeo intermedios de transcripción (pesados y regenerables)
 *.wav
 user/workspaces/*/yt/transcripciones/*.mp4
+
+# Renders de vídeo pesados (GitHub rechaza ficheros de más de 100 MB)
+user/workspaces/*/video/*.mp4
+user/workspaces/*/yt/broll/*.mov
+user/workspaces/**/remotion/out/
+

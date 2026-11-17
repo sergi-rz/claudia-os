@@ -61,9 +61,9 @@ Si el usuario pide algo que requeriría cambiar el resto de `.claude/skills/` (e
 Toda configuración de skills y del sistema vive en `user/config/settings.json`, organizada por keys descriptivas (ej: `skill_briefing`, `calendar_aliases`, `gmail_accounts`). Reglas:
 
 - **Config estática** → `settings.json`, bajo una key propia por skill o funcionalidad.
-- **Credenciales y tokens** → `user/credentials/.env` (nunca en settings.json). En instalaciones VPS headless, los crons que ejecuten `claude -p` necesitan un `CLAUDE_CODE_OAUTH_TOKEN` en el `.env` (generado con `claude setup-token`). Esto es porque los crons no heredan la sesión OAuth interactiva. Este token no es necesario si se usan las tareas programadas nativas de Claude Code (`/schedule`), que gestionan la autenticación automáticamente.
+- **Credenciales y tokens** → `user/credentials/.env` (nunca en settings.json). En instalaciones VPS headless, los crons que ejecuten `claude -p` necesitan un `CLAUDE_CODE_OAUTH_TOKEN` en el `.env` (generado con `claude setup-token`). Esto es porque los crons no heredan la sesión OAuth interactiva. En la app de escritorio no hace falta: ahí no se usa `claude -p` (ver *Tareas programadas*).
 - **Estado mutable** que cambia en cada ejecución (counters, timestamps de último fetch, etc.) → fichero propio en `user/config/` (ej: `feeds.json`). No mezclar estado con config.
-- **Tareas programadas (crons)** → nunca en settings.json. Cuando una skill necesite una tarea programada, Claudia la propone conversacionalmente al usuario en lenguaje natural (ej: "¿quieres que sincronice cada 6 horas?") y, con su confirmación, la instala directamente en el crontab del sistema. No almacenes expresiones cron en ficheros de configuración — se desincronizarían con el crontab real.
+- **Tareas programadas** → nunca en settings.json. Ver la sección *Tareas programadas*.
 
 Al crear una skill o blueprint que necesite configuración del usuario, no crees un fichero nuevo — añade una key a `settings.json`. Los scripts leen de ahí:
 
@@ -73,6 +73,57 @@ with open("user/config/settings.json") as f:
 ```
 
 **Referencia canónica:** `user/config/README.md` documenta todas las keys oficiales, sus tipos y qué hace cada una. Antes de escribir en `settings.json`, consulta ese README para usar las keys existentes con el formato correcto. Si necesitas una key nueva, añádela también al README.
+
+## Tareas programadas
+
+Cuando una skill necesite ejecutarse sola, Claudia se lo propone al usuario en lenguaje natural
+(«¿quieres que lo revise cada mañana?») y, con su confirmación, la programa ella. El usuario no
+tiene que abrir una terminal ni editar nada. No guardes horarios en ficheros de configuración: se
+desincronizarían con la tarea real.
+
+El cómo depende de dónde vive la instalación. Si no lo sabes, pregúntalo:
+
+| Dónde | Cómo se programa | Límites |
+|---|---|---|
+| **Servidor** (VPS, equipo siempre encendido) | Crontab del sistema | Los crons que lanzan `claude -p` necesitan `CLAUDE_CODE_OAUTH_TOKEN` en el `.env` |
+| **Ordenador del usuario con la app de escritorio de Claude** | Tarea programada de la app (en la barra lateral, *Programadas*): un prompt, una carpeta y un horario | Solo corre con la app abierta y el ordenador despierto |
+| **Ordenador del usuario sin la app** (solo terminal) | Cron en Linux, LaunchAgent en macOS o el Programador de tareas de Windows | Solo corre con el ordenador encendido |
+
+Las **rutinas en la nube** (`/schedule`) no sirven para esto: corren sobre un clon limpio del repo,
+sin los ficheros, el vault ni las credenciales del usuario.
+
+### En la app de escritorio
+
+- **Créala tú** con la herramienta de tareas programadas de la sesión, si la tienes. Si no, dale al
+  usuario el prompt, la carpeta y el horario exactos para que la cree en *Programadas* con un clic.
+- **Si ya hay una tarea para lo mismo, corrígela** en vez de crear otra: dos tareas con el mismo
+  trabajo se pisan.
+- **El prompt es una instrucción completa:** cada ejecución abre una sesión nueva, sin la
+  conversación en la que se creó. Di qué comandos ejecutar, en qué orden y qué hacer si uno falla.
+- **El trabajo de modelo lo hace el agente de la tarea, nunca `claude -p`.** `claude -p` usa la
+  sesión del CLI, no la de la app: en un equipo que solo usa la app puede no estar instalado, o
+  tener la sesión caducada. Si un script lanza `claude -p` en el cron del servidor, necesita un modo
+  en el que esa parte la haga el agente (por ejemplo, `--prepare` y `--save` en `claudia-intake`).
+- **Que no se pare pidiendo permisos.** Si una ejecución pide un permiso, se queda esperando a
+  alguien que no está. Guarda la tarea en modo de permisos *Auto*. Las reglas `permissions.allow`
+  de `.claude/settings.local.json` son la alternativa, pero en modo automático el agente no puede
+  escribir sus propios permisos (se bloquea, y está bien que sea así): si hacen falta, dale al
+  usuario las reglas exactas, por ejemplo `Bash(python3 .claude/skills/<skill>/<script>.py:*)`.
+- **Pruébala al crearla** con *Ejecutar ahora* y comprueba que termina sin pedir nada. Si no
+  puedes lanzarla tú (los permisos pueden bloquearlo), pide al usuario que pulse *Ejecutar ahora*
+  en *Programadas* y que compruebe ahí que el modo de permisos es *Auto*. La
+  conversación en la que la creaste no recibe aviso cuando acaba: para ver cómo fue, abre la sesión
+  de esa ejecución en *Programadas* o comprueba sus resultados en disco.
+- La app desplaza la hora unos minutos para repartir carga: una tarea de las 11:00 puede salir a
+  las 11:13.
+- **Ejecuciones perdidas:** si el ordenador estaba dormido o la app cerrada, la ejecución se salta.
+  Al volver, la app lanza una sola recuperación por tarea (la más reciente de los últimos siete días).
+  Una skill programada debe tolerarlo: no duplicar si corre dos veces y no perder nada si se salta
+  unos días.
+- Elige horas en las que el ordenador suele estar encendido (media mañana mejor que de madrugada).
+
+Cada skill dice en su `SKILL.md` qué hay que programar, cada cuánto y con qué comandos; el cómo es
+siempre esta sección.
 
 ## Prohibición de datos personales en el core
 

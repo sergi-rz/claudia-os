@@ -16,10 +16,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
-try:
-    import requests
-except ImportError:
-    sys.exit("Error: 'requests' no está instalado. pip3 install requests")
+import intake_http as requests  # solo librería estándar: ver intake_http.py
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 FEEDS_PATH = REPO_ROOT / "user" / "config" / "feeds.json"

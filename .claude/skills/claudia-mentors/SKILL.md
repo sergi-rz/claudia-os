@@ -16,8 +16,8 @@ y darles voz en el Council de `claudia-thinking`.
 
 ## Requisitos
 
-- **`claudia-intake`** — la ingesta normal encola cada pieza en la intake, que extrae el wisdom
-  (con `claude -p`) y lo guarda en el vault cuando procesa su cola.
+- **`claudia-intake`** — la ingesta normal encola cada pieza en la intake, que extrae el wisdom y
+  lo guarda en el vault cuando procesa su cola.
 - **`vault-search`** — consultas, `status` y voces del Council.
 - **`claudia-gmail`** — solo si algún mentor tiene fuentes de tipo `gmail`.
 
@@ -27,15 +27,23 @@ Si no existe `user/config/mentors.json`, cópialo de `mentors.example.json` (en 
 da de alta los mentores con el usuario (ver *Añadir un mentor*). Hazlo tú: el usuario no tiene por
 qué editar JSON ni abrir una terminal.
 
-Después, programa la ingesta diaria en el cron del usuario (Linux y macOS), **pidiéndole permiso
-antes**. Una o dos pasadas al día bastan:
+Después, con el OK del usuario, programa la ingesta. El cómo (crontab, tarea de la app de
+escritorio o programador del sistema) depende de dónde vive la instalación: ver *Tareas
+programadas* en `core/architecture.md`.
 
-```
-50 12 * * *  cd <ruta-de-claudia> && python3 .claude/skills/claudia-mentors/mentor_ingest.py >> .claude/logs/mentors.log 2>&1
-```
-
-Comprueba también que la intake tenga su propio cron de procesado: sin él, lo encolado no llega al
-vault.
+- **Qué:** `python3 .claude/skills/claudia-mentors/mentor_ingest.py`, una o dos veces al día. Solo
+  encola: lo que llega al vault depende del procesado diario de la intake, que también tiene que
+  estar programado (ver `claudia-intake`).
+- **En un servidor:** una línea de crontab, con el log en `.claude/logs/mentors.log`:
+  `50 12 * * * cd <ruta-de-claudia> && python3 .claude/skills/claudia-mentors/mentor_ingest.py >> .claude/logs/mentors.log 2>&1`
+- **En la app de escritorio:** puede ser una sola tarea diaria que lance la ingesta y, justo
+  después, procese la cola como explica *Procesar la cola desde el agente* en `claudia-intake` (el
+  agente de la tarea sintetiza el wisdom; nunca `claude -p`). Así lo nuevo de los mentores entra en
+  el vault el mismo día.
+- **Si el ordenador pasa días apagado:** la ingesta no duplica nada al ponerse al día, y Gmail
+  conserva el histórico. Los feeds RSS no: solo muestran las últimas piezas (10-20 según el sitio),
+  así que de un autor que publica a diario se pueden perder piezas tras una o dos semanas sin
+  ejecutar. Para recuperarlas, `--backfill` solo sirve con fuentes `gmail`.
 
 ## Comandos
 
@@ -76,7 +84,7 @@ python3 .claude/skills/claudia-mentors/mentor_ingest.py --backfill [--mentor <id
 ```
 
 Variantes para backfills grandes:
-- `--direct` — escribe cada correo tal cual en el vault, sin intake ni `claude -p` (0 tokens).
+- `--direct` — escribe cada correo tal cual en el vault, sin intake ni síntesis (0 tokens).
   Calidad `baja`: sin extracción de ideas y con topics por palabras clave.
 - `--collect` — guarda los correos en `user/vault/.index/mentor_collect_queue.json` para procesarlos
   en el chat. Para cada item: extrae el wisdom con el formato de `claudia-wisdom`, guárdalo en
@@ -133,7 +141,7 @@ user/config/mentors.json (config) + mentors_state.json (estado)
         ↓
   mentor_ingest.py
         ↓
-  rss / gmail / api → normaliza → intake (cola) → claude -p (wisdom) → user/vault/wisdom/ (author: X)
+  rss / gmail / api → normaliza → intake (cola) → wisdom (agente o cron) → user/vault/wisdom/ (author: X)
                               └── --direct ──────────────────────────→ user/vault/wisdom/
                                                                               ↓
                                                                      vault-search (SQLite)

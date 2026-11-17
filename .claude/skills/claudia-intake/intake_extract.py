@@ -23,10 +23,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
-try:
-    import requests
-except ImportError:
-    sys.exit("Error: 'requests' no está instalado. pip3 install requests")
+import intake_http as requests  # solo librería estándar: ver intake_http.py
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 YT_SCRIPT = REPO_ROOT / ".claude/skills/claudia-yt-transcript/extract_subtitles.py"

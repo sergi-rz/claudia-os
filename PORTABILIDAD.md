@@ -143,10 +143,12 @@ rompe la instalación: son capacidades que dejarás de tener, no errores.
 **`.claude/settings.json` y `.claude/statusline.sh`.** Codex y OpenCode los ignoran. Si usas
 la variable `CLAUDIA_ADVANCED_MEMORY`, tendrás que exportarla en tu shell.
 
-**Tareas programadas nativas.** El `/schedule` de Claude Code no existe en los demás. Usa cron
-(en Linux/macOS) o el Programador de tareas de Windows. Esto solo aplica si trabajas en local:
-en una instalación de servidor ya estabas usando cron, y sigue funcionando igual. Ver
-[VPS.md](VPS.md).
+**Tareas programadas de la app.** Las tareas programadas de la app de escritorio de Claude no
+existen en los demás. La app de escritorio de Codex tiene las suyas (sin probar con Claudia); con
+la CLI de Codex u OpenCode no hay, así que usa cron (Linux), un LaunchAgent (macOS) o el
+Programador de tareas de Windows. Esto solo aplica si trabajas en local: en una instalación de
+servidor ya estabas usando cron, y sigue funcionando igual. Ver *Tareas programadas* en
+`core/architecture.md` y [VPS.md](VPS.md).
 
 **`claudia-intake` en modo batch.** El procesamiento por lotes invoca el CLI `claude -p` desde
 Python para sintetizar el wisdom. Si no tienes el CLI de Claude instalado, ese modo no

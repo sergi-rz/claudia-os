@@ -16,10 +16,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-try:
-    import requests
-except ImportError:
-    sys.exit("Error: 'requests' no está instalado.")
+import intake_http as requests  # solo librería estándar: ver intake_http.py
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 VAULT_WISDOM = REPO_ROOT / "user" / "vault" / "wisdom"
@@ -244,7 +241,11 @@ def generate_briefing(telegram=True, email=True, hours=24):
                 wisdom_contents[item["id"]] = wisdom
 
         feed_items = [item for _, item in feed_indexed]
-        send_email(processed, feed_items, stats, wisdom_contents, failed)
+        try:
+            send_email(processed, feed_items, stats, wisdom_contents, failed)
+        except ValueError as e:
+            # Falta configuración (p. ej. EMAIL_TO): es un aviso, como cuando falta Telegram.
+            print(f"[WARN] Email no enviado: {e}")
 
 
 def main():
