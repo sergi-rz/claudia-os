@@ -33,7 +33,7 @@ body.mode-scene .view-scene, body.mode-quick .view-quick, body.mode-log .view-lo
   transition: opacity .25s, transform .25s; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
-.seat { position: absolute; transform: translate(-50%, -50%); text-align: center; z-index: 3; width: 140px; cursor: pointer; }
+.seat { position: absolute; transform: translate(-50%, -50%) scale(var(--seat-scale, 1)); text-align: center; z-index: 3; width: 140px; cursor: pointer; }
 
 /* Tablero de opciones, sobre la mesa */
 .board { position: absolute; left: var(--cx, 50%); top: var(--cy, 50%); width: 50%; transform: translate(-50%, -50%); z-index: 6; display: none;

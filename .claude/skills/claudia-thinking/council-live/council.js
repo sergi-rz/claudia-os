@@ -198,12 +198,31 @@ function timeline() {
 const narrated = () => timeline().slice(0, state.shown).filter((i) => i.type === "voice").map((i) => i.v);
 
 // ---------- escena ----------
+// Ángulos de n asientos a la misma distancia unos de otros a lo largo de la elipse, empezando arriba.
+// Repartirlos por ángulo los apelotona en los lados de una mesa ancha, y con muchos miembros se pisan.
+function seatAngles(n, g) {
+  const W = 16, H = 9, steps = 720, start = -Math.PI / 2, len = [0];
+  for (let k = 1; k <= steps; k++) {
+    const t = start + (2 * Math.PI * k) / steps;
+    len.push(len[k - 1] + Math.hypot(g.rx * W * Math.sin(t), g.ry * H * Math.cos(t)));
+  }
+  const total = len[steps], out = [];
+  for (let i = 0, k = 0; i < n; i++) {
+    const target = (total * i) / n;
+    while (k < steps && len[k] < target) k++;
+    out.push(start + (2 * Math.PI * k) / steps);
+  }
+  return out;
+}
+
 function buildSeats() {
   Object.values(state.seats).forEach((e) => e.remove());
   state.seats = {};
-  const n = state.data.members.length;
+  const n = state.data.members.length, g = state.geo, angles = seatAngles(n, g);
+  // Más de 10 miembros: asientos algo más pequeños para que quepan.
+  $("stage").style.setProperty("--seat-scale", n > 10 ? Math.max(0.72, 10 / n).toFixed(2) : 1);
   state.data.members.forEach((m, i) => {
-    const a = (-90 + (360 / n) * i) * Math.PI / 180, g = state.geo;
+    const a = angles[i];
     const seat = document.createElement("div");
     seat.className = `seat kind-${m.kind} state-waiting` + (state.entered ? "" : " absent");
     seat.style.left = g.cx + g.rx * Math.cos(a) + "%";
