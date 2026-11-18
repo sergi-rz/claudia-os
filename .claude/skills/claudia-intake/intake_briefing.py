@@ -80,6 +80,39 @@ def _get_recent_processed(hours=24):
     return recent
 
 
+BACKFILL_DAYS = 14
+
+
+def _split_backfill(processed):
+    """Separa el histórico de mentores de lo nuevo.
+
+    Al dar de alta a un mentor se encola su archivo de golpe (decenas o cientos de piezas). Listarlas
+    en el briefing rompe el Telegram (4.096 caracteres como máximo) y llena el correo de cosas que no
+    son novedad, así que el histórico va en una línea de resumen. Es histórico una pieza de mentor
+    publicada más de BACKFILL_DAYS días antes de procesarse."""
+    recent, backfill = [], []
+    for item in processed:
+        is_backfill = False
+        if item.get("source") == "mentor" and item.get("published"):
+            try:
+                published = datetime.fromisoformat(item["published"][:10]).replace(tzinfo=timezone.utc)
+                done = datetime.fromisoformat(item["processed_at"])
+                is_backfill = (done - published).days > BACKFILL_DAYS
+            except (ValueError, TypeError, KeyError):
+                pass
+        (backfill if is_backfill else recent).append(item)
+    return recent, backfill
+
+
+def _backfill_line(backfill):
+    counts = {}
+    for item in backfill:
+        author = item.get("author") or "?"
+        counts[author] = counts.get(author, 0) + 1
+    detail = ", ".join(f"{a} {n}" for a, n in sorted(counts.items(), key=lambda x: -x[1]))
+    return f"Histórico de mentores al vault: {len(backfill)} piezas ({detail})"
+
+
 def _load_wisdom_content(item):
     """Intenta cargar el contenido wisdom del vault para un item."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -164,7 +197,7 @@ def _get_persistent_failures(hours=48):
     return recent
 
 
-def build_telegram_message(processed, feed_indexed, stats, failed=None):
+def build_telegram_message(processed, feed_indexed, stats, failed=None, backfill=None):
     """Construye el mensaje de Telegram."""
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
     parts = [f"<b>Briefing diario — {today}</b>"]
@@ -183,6 +216,9 @@ def build_telegram_message(processed, feed_indexed, stats, failed=None):
             if takeaway:
                 line += f"\n  {takeaway[:100]}"
             parts.append(line)
+
+    if backfill:
+        parts.append("\n" + _backfill_line(backfill))
 
     if failed:
         parts.append(f"\n<b>Fallidos ({len(failed)}):</b>")
@@ -215,21 +251,22 @@ def generate_briefing(telegram=True, email=True, hours=24):
     if n_expired:
         print(f"Expired {n_expired} items antiguos")
 
-    processed = _get_recent_processed(hours)
+    processed, backfill = _split_backfill(_get_recent_processed(hours))
     feed_indexed = get_feed_new_indexed()
     failed = _get_persistent_failures()
     stats = get_stats()
 
-    has_content = bool(processed) or bool(feed_indexed) or bool(failed)
+    has_content = bool(processed) or bool(backfill) or bool(feed_indexed) or bool(failed)
     if not has_content:
         print("No hay contenido para el briefing (sin procesados recientes ni feeds nuevos)")
         return
 
-    print(f"Briefing: {len(processed)} procesados, {len(feed_indexed)} feeds nuevos, {len(failed)} fallidos\n")
+    print(f"Briefing: {len(processed)} procesados, {len(backfill)} de histórico, "
+          f"{len(feed_indexed)} feeds nuevos, {len(failed)} fallidos\n")
 
     # Telegram
     if telegram:
-        tg_msg = build_telegram_message(processed, feed_indexed, stats, failed)
+        tg_msg = build_telegram_message(processed, feed_indexed, stats, failed, backfill)
         _send_telegram(tg_msg)
 
     # Email (si hay items procesados o fallos que reportar)

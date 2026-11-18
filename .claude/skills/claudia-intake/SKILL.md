@@ -19,6 +19,9 @@ una pieza se encola con `--date` (fecha de publicación), esa es la fecha que qu
 
 - **Items manuales** (Telegram, `/intake`, notas): se procesan automáticamente en el cron diario
 - **Items de feeds** (RSS, YouTube, Substack): se listan en el briefing sin procesar. El usuario responde "procesa 1,3" para seleccionar cuáles extraer
+- **Histórico de mentores** (`claudia-mentors --backfill`): se procesa como los manuales, pero en el
+  briefing sale en una sola línea con el recuento por autor. Cuenta como histórico una pieza de
+  mentor publicada más de 14 días antes de procesarse
 
 ## Comandos
 

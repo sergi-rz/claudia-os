@@ -5,7 +5,8 @@ The intake pipeline handles wisdom extraction, vault storage and briefing.
 
 Usage:
   python3 mentor_ingest.py                    # Daily: api + rss + gmail sources with "daily": true
-  python3 mentor_ingest.py --backfill          # Historical: every gmail source
+  python3 mentor_ingest.py --backfill          # Historical: gmail sources + Substack archives
+  python3 mentor_ingest.py --backfill --since 2025-01-01   # Substack archive from that date on
   python3 mentor_ingest.py --mentor <id>       # One mentor only
   python3 mentor_ingest.py --dry-run           # Show without queuing
   python3 mentor_ingest.py --status            # Corpus status
@@ -19,6 +20,9 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -362,6 +366,70 @@ def _fetch_rss(source, state_ids, limit=None, footer_patterns=None):
     return items
 
 
+def _archive_page(url, attempts=4):
+    """Una página del archivo de Substack. Reintenta los 429 (salta si se piden muchas seguidas)."""
+    for attempt in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "claudia-mentors/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < attempts - 1:
+                time.sleep(20 * (attempt + 1))
+                continue
+            raise
+
+
+def _fetch_substack_archive(source, state_ids, since=None):
+    """Histórico de una fuente rss de Substack, a través de la API de su archivo.
+
+    El feed solo trae las ~20 últimas piezas. El archivo (`/api/v1/archive`) las tiene todas y pagina
+    con cursor: `?sort=new` y luego `&cursor=<nextCursor>` (con `offset` responde 400). Se quedan las
+    piezas en abierto que no sean pódcast; `audience` ya descarta las de pago, así que
+    `min_content_chars` no se aplica aquí. Devuelve None si la fuente no es de Substack."""
+    origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlparse(source["url"]))
+    try:
+        page = _archive_page(f"{origin}/api/v1/archive?sort=new")
+    except Exception:
+        return None
+    if not isinstance(page, dict) or "posts" not in page:
+        return None
+
+    items, skipped = [], {}
+    while True:
+        done = False
+        for post in page["posts"]:
+            date_str = (post.get("post_date") or "")[:10]
+            if since and date_str < since:
+                done = True
+                break
+            url = (post.get("canonical_url") or "").split("?")[0].rstrip("/")
+            title = post.get("title") or ""
+            if not url or url in state_ids:
+                continue
+            if post.get("audience") != "everyone":
+                reason = "de pago"
+            elif post.get("type") != "newsletter":
+                reason = post.get("type") or "otro tipo"
+            else:
+                reason = next(("título excluido" for rx in source.get("exclude_title", [])
+                               if re.search(rx, title, re.IGNORECASE)), None)
+            if reason:
+                skipped[reason] = skipped.get(reason, 0) + 1
+                continue
+            items.append({"id": url, "title": title, "date": date_str, "content": "", "url": url})
+        cursor = page.get("nextCursor")
+        if done or not cursor or not page["posts"]:
+            break
+        time.sleep(3)
+        page = _archive_page(f"{origin}/api/v1/archive?sort=new&cursor={urllib.parse.quote(cursor)}")
+
+    if skipped:
+        print("  Omitidos del archivo: " + ", ".join(f"{n} {r}" for r, n in skipped.items()))
+    items.reverse()  # de la más antigua a la más reciente
+    return items
+
+
 def _fetch_gmail(source, mentor_id, state, gmail_max=20):
     """Fetch emails from Gmail. Returns list of normalized items."""
     account = source["account"]
@@ -427,7 +495,7 @@ def _fetch_gmail(source, mentor_id, state, gmail_max=20):
 KNOWN_SOURCE_TYPES = {"api", "rss", "gmail"}
 
 
-def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gmail_max=20, direct=False, collect=False, collected=None, topic_keywords=None):
+def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gmail_max=20, direct=False, collect=False, collected=None, topic_keywords=None, since=None):
     mentor_id = mentor["id"]
     print(f"\n── {mentor['name']} ({mentor_id})")
 
@@ -466,6 +534,24 @@ def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gma
             for item in items:
                 if _vault_file_exists(item["date"], item["title"]):
                     print(f"  Ya en vault: {item['date']} {item['title'][:45]}")
+                    mentor_state["processed_ids"].append(item["id"])
+                    continue
+                if _enqueue(item, mentor, dry_run):
+                    if not dry_run:
+                        mentor_state["processed_ids"].append(item["id"])
+                        mentor_state["last_run"] = today
+                        _save_state(state)
+                    queued += 1
+
+        elif src_type == "rss" and backfill and not collect:
+            print(f"  Archivo de Substack{' desde ' + since if since else ''}...")
+            items = _fetch_substack_archive(source, processed_ids, since=since)
+            if items is None:
+                print("  Sin archivo: no es de Substack. Solo entra lo que trae el feed en la pasada diaria.")
+                continue
+            print(f"  Archivo: {len(items)} pieza(s) nuevas")
+            for item in items:
+                if _vault_file_exists(item["date"], item["title"]):
                     mentor_state["processed_ids"].append(item["id"])
                     continue
                 if _enqueue(item, mentor, dry_run):
@@ -625,7 +711,8 @@ def cmd_status(config, state):
 def main():
     parser = argparse.ArgumentParser(description="claudia-mentors ingest")
     parser.add_argument("--mentor", help="Solo procesar este mentor ID")
-    parser.add_argument("--backfill", action="store_true", help="Histórico completo desde Gmail")
+    parser.add_argument("--backfill", action="store_true", help="Histórico: fuentes gmail y archivo de las fuentes rss de Substack")
+    parser.add_argument("--since", help="Con --backfill, solo piezas de Substack desde esta fecha (AAAA-MM-DD)")
     parser.add_argument("--dry-run", action="store_true", help="Muestra sin encolar")
     parser.add_argument("--status", action="store_true", help="Estado del corpus")
     parser.add_argument("--limit", type=int, default=None, help="Máximo de items nuevos a procesar por fuente RSS")
@@ -661,7 +748,7 @@ def main():
 
     total = 0
     for mentor in mentors:
-        total += process_mentor(mentor, state, backfill=args.backfill, dry_run=args.dry_run, limit=args.limit, gmail_max=args.gmail_max, direct=args.direct, collect=False, topic_keywords=config.get("topic_keywords"))
+        total += process_mentor(mentor, state, backfill=args.backfill, dry_run=args.dry_run, limit=args.limit, gmail_max=args.gmail_max, direct=args.direct, collect=False, topic_keywords=config.get("topic_keywords"), since=args.since)
 
     print(f"\nTotal: {total} item(s) encolados en intake")
 

@@ -43,7 +43,8 @@ programadas* en `core/architecture.md`.
 - **Si el ordenador pasa días apagado:** la ingesta no duplica nada al ponerse al día, y Gmail
   conserva el histórico. Los feeds RSS no: solo muestran las últimas piezas (10-20 según el sitio),
   así que de un autor que publica a diario se pueden perder piezas tras una o dos semanas sin
-  ejecutar. Para recuperarlas, `--backfill` solo sirve con fuentes `gmail`.
+  ejecutar. Para recuperarlas: `--backfill` lee el archivo completo de las fuentes de Substack y el
+  histórico de las de Gmail. De otros feeds no hay forma de recuperar lo que ya no muestran.
 
 ## Comandos
 
@@ -77,11 +78,20 @@ corpus del que salen esas voces.
 Da de alta un mentor con el usuario: ver *Añadir un mentor*.
 
 ### `/claudia-mentors backfill [<mentor-id>]`
-Ingesta histórica de las fuentes `gmail` (todos los correos aún no procesados):
+Ingesta histórica, para dar de alta a un mentor con todo lo que ya ha publicado:
 
 ```bash
-python3 .claude/skills/claudia-mentors/mentor_ingest.py --backfill [--mentor <id>] [--gmail-max 50]
+python3 .claude/skills/claudia-mentors/mentor_ingest.py --backfill [--mentor <id>] [--since AAAA-MM-DD] [--gmail-max 50]
 ```
+
+- **Fuentes `gmail`:** los correos aún no procesados (hasta `--gmail-max`).
+- **Fuentes `rss` de Substack** (incluidas las de dominio propio): el archivo completo de la
+  publicación, más allá de las ~20 piezas del feed. Entran las piezas en abierto; las de pago y los
+  pódcast se saltan, y `exclude_title` se aplica igual. `--since` limita el archivo a partir de una
+  fecha. Las demás fuentes `rss` no tienen archivo: se avisa y se siguen leyendo en la pasada diaria.
+
+Un archivo grande son decenas o cientos de piezas en la cola. Con la intake en cron se procesan
+solas; en el briefing salen resumidas en una línea («Histórico de mentores al vault»), no una a una.
 
 Variantes para backfills grandes:
 - `--direct` — escribe cada correo tal cual en el vault, sin intake ni síntesis (0 tokens).
@@ -106,7 +116,7 @@ Cada mentor tiene una o más fuentes en `user/config/mentors.json`:
 
 | Tipo | Campos | Cuándo se lee |
 |---|---|---|
-| `rss` | `url` del feed (RSS 2.0 o Atom; Substack, Ghost, WordPress, YouTube…) | Cada pasada diaria. Solo trae título y enlace: la intake descarga el contenido |
+| `rss` | `url` del feed (RSS 2.0 o Atom; Substack, Ghost, WordPress, YouTube…) | Cada pasada diaria. Solo trae título y enlace: la intake descarga el contenido. En `--backfill`, si es de Substack, su archivo completo |
 | `gmail` | `account` (cuenta de `claudia-gmail`), `query` (búsqueda de Gmail) | En `--backfill`. Con `"daily": true`, también en cada pasada diaria (para quien solo publica por email) |
 | `api` | `url` de un endpoint JSON que devuelve la pieza del día; `credentials_key` (variable de `user/credentials/.env` con el token Bearer); `fields` opcional | Cada pasada diaria |
 
@@ -144,7 +154,9 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
 3. Añade la entrada a `user/config/mentors.json` (`id`, `name`, `description`, `tags`, `sources`).
    El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
 4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.
-5. Prueba con `--dry-run --mentor <id>` y, si hay histórico en Gmail, lanza el backfill.
+5. Prueba con `--dry-run --mentor <id>` y, si tiene histórico (archivo de Substack o correos en
+   Gmail), lanza el backfill. Mira antes cuántas piezas son con `--backfill --dry-run`: si son muchas,
+   pregunta al usuario si las quiere todas o desde una fecha (`--since`).
 6. **Foto** (para el panel del Council): `mentor_ingest.py --fetch-photos --mentor <id>` la baja de
    la imagen de su feed, si la hay, a `user/config/mentor-photos/<id>.<ext>`. Es la imagen de la
    publicación: mírala, y si es un logo bórrala (mejor sus iniciales que un logo) o pide al usuario
