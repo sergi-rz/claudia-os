@@ -34,6 +34,8 @@ from intake_queue import get_items, update_status, get_stats, _now_iso
 from intake_extract import extract_content
 
 BATCH_SIZE = 5  # Max items por llamada a Claude
+SHORT_LIMIT = 15000   # caracteres por pieza dentro de un lote de varias
+LONG_LIMIT = 120000   # una pieza más larga (vídeo, pódcast, entrevista) va sola en su lote, con este tope
 AGENT_BATCH = REPO_ROOT / "user" / "vault" / ".index" / "intake_batch.json"
 AGENT_RESULT = REPO_ROOT / "user" / "vault" / ".index" / "intake_batch_result.json"
 STUCK_AFTER_HOURS = 2  # Antigüedad tras la que un item 'processing' se da por abandonado
@@ -132,9 +134,11 @@ def _build_wisdom_prompt(extractions):
         if not content:
             continue
 
-        # Truncar contenido muy largo
-        if len(content) > 15000:
-            content = content[:15000] + "\n\n[... contenido truncado ...]"
+        # Truncar contenido muy largo (una pieza sola en su lote admite mucho más: ver _batches)
+        limit = LONG_LIMIT if len(extractions) == 1 else SHORT_LIMIT
+        if len(content) > limit:
+            content = content[:limit] + "\n\n[... contenido truncado ...]"
+        context = f'Context: {data["context"]}\n' if data.get("context") else ""
 
         items_text.append(
             f'=== ITEM {item_id} ===\n'
@@ -142,6 +146,7 @@ def _build_wisdom_prompt(extractions):
             f'Title: {data.get("title", "Sin titulo")}\n'
             f'Type: {data.get("content_type", "article")}\n'
             f'Author: {data.get("author", "Desconocido")}\n'
+            f'{context}'
             f'\nCONTENT:\n{content}\n'
             f'=== END ITEM {item_id} ==='
         )
@@ -161,6 +166,11 @@ Para CADA item, extrae:
 8. quality: alta/media/baja
 9. slug: slug descriptivo para el nombre de fichero (ej: "miessler-ai-agent-stack")
 10. title: titulo limpio del contenido
+
+Si un item trae "Context", es una indicacion del usuario sobre esa pieza: siguela. Por ejemplo, en una
+entrevista o un podcast con varias voces puede pedir que extraigas solo lo que dice una persona
+(Author); entonces ideas, insights y citas son solo suyas, y lo del entrevistador o de otros invitados
+no se le atribuye.
 
 Responde UNICAMENTE con un JSON valido (sin markdown, sin backticks, sin texto antes o despues).
 El JSON debe ser un objeto con los item_id como claves:
@@ -399,6 +409,7 @@ def _pre_extract(items):
                 "author": item.get("author") or "Desconocido",
                 "content_type": "newsletter",
                 "published": item.get("published"),
+                "context": item.get("context"),
             }
             continue
 
@@ -413,6 +424,8 @@ def _pre_extract(items):
                 result["author"] = item["author"]
             if item.get("published"):
                 result["published"] = item["published"]
+            if item.get("context"):
+                result["context"] = item["context"]
             if result.get("text"):
                 extractions[item["id"]] = result
                 if result.get("title") and not item.get("title"):
@@ -435,9 +448,13 @@ def _pre_extract(items):
 
 
 def _batches(extractions):
-    """Trocea las extracciones en lotes de BATCH_SIZE: [(ids, prompt), ...]."""
-    ids = list(extractions.keys())
-    out = []
+    """Trocea las extracciones en lotes de BATCH_SIZE: [(ids, prompt), ...].
+
+    Una pieza de más de SHORT_LIMIT caracteres (la transcripción de un vídeo o un pódcast largo) va
+    sola en su lote, para no recortarla a los primeros minutos."""
+    long_ids = [k for k, v in extractions.items() if len(v.get("text") or "") > SHORT_LIMIT]
+    out = [([k], _build_wisdom_prompt({k: extractions[k]})) for k in long_ids]
+    ids = [k for k in extractions if k not in long_ids]
     for start in range(0, len(ids), BATCH_SIZE):
         batch_ids = ids[start:start + BATCH_SIZE]
         out.append((batch_ids, _build_wisdom_prompt({k: extractions[k] for k in batch_ids})))
@@ -454,8 +471,10 @@ def _synthesize_with_cli(extractions):
         print(f"  Batch {n}: {len(batch_ids)} items...")
         try:
             result = subprocess.run(
-                ["claude", "-p", prompt, "--output-format", "json", "--max-turns", "5"],
-                capture_output=True, text=True, timeout=300,
+                # El prompt va por stdin: como argumento, Linux corta a 128 KB y una transcripción
+                # larga no cabe.
+                ["claude", "-p", "--output-format", "json", "--max-turns", "5"],
+                input=prompt, capture_output=True, text=True, timeout=600,
                 cwd=str(REPO_ROOT),
             )
             if result.returncode != 0:

@@ -248,6 +248,7 @@ def _fetch_api(source):
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 CONTENT_NS = "{http://purl.org/rss/1.0/modules/content/}"
+DC_NS = "{http://purl.org/dc/elements/1.1/}"
 
 
 def _atom_entries(root):
@@ -263,7 +264,8 @@ def _atom_entries(root):
         date_str = date_raw[:10] if re.match(r"\d{4}-\d{2}-\d{2}", date_raw) \
             else datetime.now(timezone.utc).strftime("%Y-%m-%d")
         body = entry.findtext(f"{ATOM_NS}content") or entry.findtext(f"{ATOM_NS}summary") or ""
-        yield guid, entry.findtext(f"{ATOM_NS}title") or "", link, date_str, body
+        creator = entry.findtext(f"{ATOM_NS}author/{ATOM_NS}name") or ""
+        yield guid, entry.findtext(f"{ATOM_NS}title") or "", link, date_str, body, creator
 
 
 def _rss_entries(channel):
@@ -275,16 +277,24 @@ def _rss_entries(channel):
         except Exception:
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         body = entry.findtext(f"{CONTENT_NS}encoded") or entry.findtext("description") or ""
-        yield guid, entry.findtext("title") or "", entry.findtext("link") or "", date_str, body
+        creator = entry.findtext(f"{DC_NS}creator") or ""
+        yield guid, entry.findtext("title") or "", entry.findtext("link") or "", date_str, body, creator
 
 
-def _skip_reason(source, title, link, body_len):
-    """Filtros de una fuente rss. Devuelve el motivo para saltar la pieza, o None."""
+def _skip_reason(source, title, link, body_len, body_head=""):
+    """Filtros de una fuente rss. Devuelve el motivo para saltar la pieza, o None.
+
+    `body_head` es el principio del texto de la pieza en el feed: ahí buscan los patrones de
+    `exclude_content` (p. ej. la línea «por <autor invitado>» de las newsletters con firmas
+    invitadas, que no deben hablar en el Council con la voz del mentor)."""
     if "/shorts/" in link and not source.get("include_shorts"):
         return "short"
     for pattern in source.get("exclude_title", []):
         if re.search(pattern, title, re.IGNORECASE):
             return "título excluido"
+    for pattern in source.get("exclude_content", []):
+        if re.search(pattern, body_head, re.MULTILINE):
+            return "contenido excluido"
     min_chars = source.get("min_content_chars")
     if min_chars and body_len < min_chars:
         return "contenido corto (¿de pago?)"
@@ -306,7 +316,7 @@ def _html_to_text(raw: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
-def _fetch_rss(source, state_ids, limit=None, footer_patterns=None):
+def _fetch_rss(source, state_ids, limit=None, footer_patterns=None, author=None):
     """Fetch from an RSS 2.0 or Atom feed. Returns list of normalized items.
 
     Por defecto solo trae título y enlace: la intake descarga la página. Con
@@ -337,11 +347,15 @@ def _fetch_rss(source, state_ids, limit=None, footer_patterns=None):
 
     items = []
     skipped = {}
-    for guid, title, link, date_str, body in entries:
+    for guid, title, link, date_str, body, creator in entries:
         guid = guid.split("?")[0].rstrip("/")
         if guid in state_ids:
             continue
-        reason = _skip_reason(source, title, link, len(body))
+        head = _html_to_text(body)[:1500] if source.get("exclude_content") else ""
+        reason = _skip_reason(source, title, link, len(body), head)
+        # Firma de otra persona en el feed (dc:creator o autor de Atom): firma invitada.
+        if not reason and author and creator and _norm_name(author) not in _norm_name(creator):
+            reason = "firma de otra persona"
         if reason:
             skipped[reason] = skipped.get(reason, 0) + 1
             continue
@@ -380,13 +394,21 @@ def _archive_page(url, attempts=4):
             raise
 
 
-def _fetch_substack_archive(source, state_ids, since=None):
+def _norm_name(name):
+    import unicodedata
+    return unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower().strip()
+
+
+def _fetch_substack_archive(source, state_ids, since=None, author=None):
     """Histórico de una fuente rss de Substack, a través de la API de su archivo.
 
     El feed solo trae las ~20 últimas piezas. El archivo (`/api/v1/archive`) las tiene todas y pagina
     con cursor: `?sort=new` y luego `&cursor=<nextCursor>` (con `offset` responde 400). Se quedan las
     piezas en abierto que no sean pódcast; `audience` ya descarta las de pago, así que
-    `min_content_chars` no se aplica aquí. Devuelve None si la fuente no es de Substack."""
+    `min_content_chars` no se aplica aquí. Con `author`, se saltan las piezas firmadas por otra
+    persona o en coautoría (firmas invitadas): en el Council hablarían con la voz del mentor.
+    Las piezas sin firma se quedan (Substack no siempre la rellena). Devuelve None si la fuente no
+    es de Substack."""
     origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlparse(source["url"]))
     try:
         page = _archive_page(f"{origin}/api/v1/archive?sort=new")
@@ -407,8 +429,11 @@ def _fetch_substack_archive(source, state_ids, since=None):
             title = post.get("title") or ""
             if not url or url in state_ids:
                 continue
+            bylines = [_norm_name(b.get("name")) for b in post.get("publishedBylines") or []]
             if post.get("audience") != "everyone":
                 reason = "de pago"
+            elif author and bylines and bylines != [_norm_name(author)]:
+                reason = "firma invitada o coautoría"
             elif post.get("type") != "newsletter":
                 reason = post.get("type") or "otro tipo"
             else:
@@ -529,7 +554,8 @@ def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gma
         elif src_type == "rss" and not backfill:
             print(f"  Fetching RSS...")
             items = _fetch_rss(source, processed_ids, limit=limit,
-                               footer_patterns=mentor.get("footer_patterns", []))
+                               footer_patterns=mentor.get("footer_patterns", []),
+                               author=None if source.get("any_author") else mentor["name"])
             print(f"  RSS: {len(items)} item(s) nuevos")
             for item in items:
                 if _vault_file_exists(item["date"], item["title"]):
@@ -545,7 +571,7 @@ def process_mentor(mentor, state, backfill=False, dry_run=False, limit=None, gma
 
         elif src_type == "rss" and backfill and not collect:
             print(f"  Archivo de Substack{' desde ' + since if since else ''}...")
-            items = _fetch_substack_archive(source, processed_ids, since=since)
+            items = _fetch_substack_archive(source, processed_ids, since=since, author=mentor["name"])
             if items is None:
                 print("  Sin archivo: no es de Substack. Solo entra lo que trae el feed en la pasada diaria.")
                 continue

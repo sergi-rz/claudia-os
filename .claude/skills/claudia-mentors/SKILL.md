@@ -86,8 +86,8 @@ python3 .claude/skills/claudia-mentors/mentor_ingest.py --backfill [--mentor <id
 
 - **Fuentes `gmail`:** los correos aún no procesados (hasta `--gmail-max`).
 - **Fuentes `rss` de Substack** (incluidas las de dominio propio): el archivo completo de la
-  publicación, más allá de las ~20 piezas del feed. Entran las piezas en abierto; las de pago y los
-  pódcast se saltan, y `exclude_title` se aplica igual. `--since` limita el archivo a partir de una
+  publicación, más allá de las ~20 piezas del feed. Entran las piezas en abierto; las de pago, los
+  pódcast y las firmadas por otra persona o en coautoría se saltan, y `exclude_title` se aplica igual. `--since` limita el archivo a partir de una
   fecha. Las demás fuentes `rss` no tienen archivo: se avisa y se siguen leyendo en la pasada diaria.
 
 Un archivo grande son decenas o cientos de piezas en la cola. Con la intake en cron se procesan
@@ -128,6 +128,15 @@ Cada mentor tiene una o más fuentes en `user/config/mentors.json`:
     secciones fijas que no son opinión del autor).
   - `min_content_chars`: se omite la pieza cuyo cuerpo en el feed sea más corto. Sirve para las
     piezas de pago de Substack, que llegan al feed con solo unas líneas.
+  - **Firmas de otra persona:** si el feed trae el autor de cada pieza (`dc:creator` o el autor de
+    Atom) y no es el mentor, la pieza se salta: en el Council hablaría con su voz algo que no ha
+    escrito. Para una fuente en la que publican varios a propósito, `"any_author": true`.
+  - `exclude_content`: expresiones regulares que se buscan al principio del texto de la pieza en el
+    feed (los primeros 1.500 caracteres, línea a línea). Sirve para las **firmas invitadas**: si
+    entran con el nombre del mentor, en el Council hablan con su voz cosas que no ha escrito él.
+    Ejemplo: `["Hoy con firma invitada", "^\\s*por [A-ZÁÉÍÓÚÑ][^\\n(,]{2,40}( \\(|,)"]` para la línea
+    «por <autor>, <cargo>» bajo el título. Al dar de alta una newsletter, mira si publica a
+    invitados. No se aplica al archivo de Substack en `--backfill`, que no trae el texto.
   - `use_feed_content: true`: usa el texto del propio feed (limpio de HTML y cortado en el pie) en
     vez de que la intake descargue la página. Para newsletters cuya web trae mucho ruido, como las
     de Mailchimp.
@@ -152,6 +161,7 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
    Mira también si escribe desde su opinión o sobre todo resume a otros: en el Council, un autor
    que solo divulga suena igual que el resto. Lee dos o tres piezas recientes antes de decidir.
 3. Añade la entrada a `user/config/mentors.json` (`id`, `name`, `description`, `tags`, `sources`).
+   Si no tiene canal propio, `"sources": []`: ver *Mentores sin canal propio*.
    El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
 4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.
 5. Prueba con `--dry-run --mentor <id>` y, si tiene histórico (archivo de Substack o correos en
@@ -161,6 +171,27 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
    la imagen de su feed, si la hay, a `user/config/mentor-photos/<id>.<ext>`. Es la imagen de la
    publicación: mírala, y si es un logo bórrala (mejor sus iniciales que un logo) o pide al usuario
    una foto. Los que solo publican por email no tienen imagen: la pone el usuario.
+
+## Mentores sin canal propio
+
+Hay referentes que no publican en un sitio suyo: lo que piensan está en charlas, entrevistas en
+pódcasts de otros o artículos sueltos. Se dan de alta igual, con `"sources": []`, y sus piezas se
+encolan a mano con su nombre de autor. La pasada diaria los salta y `status` cuenta lo que tengan
+en el vault.
+
+```bash
+python3 .claude/skills/claudia-intake/intake_add.py --url "<url>" --source mentor \
+  --author "<name exacto de mentors.json>" --date AAAA-MM-DD --title "<título>" \
+  --context "Entrevista en <pódcast>. Extrae solo lo que dice <name>: lo del entrevistador no se le atribuye."
+```
+
+- **El `--context` es lo que importa en las entrevistas:** la transcripción automática de YouTube no
+  separa voces, y sin él las ideas del entrevistador o de otros invitados acabarían a nombre del
+  mentor. En una charla suya basta con «Charla de <name>; si hay presentador o preguntas del
+  público, extrae solo lo que dice él».
+- **`--date`** es la fecha de publicación (en YouTube, la de subida).
+- Un vídeo o pódcast largo se sintetiza entero (va solo en su lote): no hace falta trocearlo.
+- Antes de encolar, mira la duración y si es una charla o una entrevista, y díselo al usuario.
 
 ## Arquitectura
 

@@ -34,6 +34,10 @@ python3 .claude/skills/claudia-intake/intake_add.py --url "$URL" --source manual
 
 Confirma: "Encolado para el próximo briefing."
 
+El contexto llega a la síntesis como indicación del usuario sobre esa pieza. Sirve, por ejemplo,
+para decir a quién atribuir las ideas en una entrevista («extrae solo lo que dice X»). Las piezas
+largas (vídeos, pódcasts: más de 15.000 caracteres) se sintetizan solas y enteras, hasta 120.000.
+
 ### `/intake digest`
 Procesa la cola pendiente ahora y genera el briefing. Sigue *Procesar la cola desde el agente* y
 termina con `python3 .claude/skills/claudia-intake/intake_briefing.py`.
