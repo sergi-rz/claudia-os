@@ -33,7 +33,10 @@ MENTORS_CONFIG = REPO_ROOT / "user/config/mentors.json"
 MENTORS_STATE = REPO_ROOT / "user/config/mentors_state.json"
 VAULT_WISDOM = REPO_ROOT / "user/vault/wisdom"
 GMAIL_SCRIPT = REPO_ROOT / ".claude/skills/claudia-gmail/gmail.py"
-GMAIL_PYTHON = REPO_ROOT / ".claude/skills/claudia-gmail/venv/bin/python3"
+GMAIL_VENV_PYTHON = REPO_ROOT / ".claude/skills/claudia-gmail/venv/bin/python3"
+# Sin venv propio, claudia-gmail corre con el Python que ejecuta este script (instalaciones que
+# tienen las librerías de Google en el Python del sistema).
+GMAIL_PYTHON = GMAIL_VENV_PYTHON if GMAIL_VENV_PYTHON.exists() else Path(sys.executable)
 INTAKE_ADD = REPO_ROOT / ".claude/skills/claudia-intake/intake_add.py"
 ENV_FILE = REPO_ROOT / "user/credentials/.env"
 
@@ -354,7 +357,7 @@ def _fetch_rss(source, state_ids, limit=None, footer_patterns=None, author=None)
         head = _html_to_text(body)[:1500] if source.get("exclude_content") else ""
         reason = _skip_reason(source, title, link, len(body), head)
         # Firma de otra persona en el feed (dc:creator o autor de Atom): firma invitada.
-        if not reason and author and creator and _norm_name(author) not in _norm_name(creator):
+        if not reason and author and creator and not _same_author(author, creator):
             reason = "firma de otra persona"
         if reason:
             skipped[reason] = skipped.get(reason, 0) + 1
@@ -399,6 +402,12 @@ def _norm_name(name):
     return unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower().strip()
 
 
+def _same_author(mentor_name, signed):
+    """¿La firma de una pieza es la del mentor? Vale que la firma lleve más apellidos que el
+    nombre de mentors.json («Jorge Bosch» firma como «Jorge Bosch Alés»)."""
+    return _norm_name(mentor_name) in _norm_name(signed)
+
+
 def _fetch_substack_archive(source, state_ids, since=None, author=None):
     """Histórico de una fuente rss de Substack, a través de la API de su archivo.
 
@@ -417,7 +426,8 @@ def _fetch_substack_archive(source, state_ids, since=None, author=None):
     if not isinstance(page, dict) or "posts" not in page:
         return None
 
-    items, skipped = [], {}
+    GUEST = "firma invitada o coautoría"
+    items, skipped, guest_names, seen_posts = [], {}, {}, 0
     while True:
         done = False
         for post in page["posts"]:
@@ -429,11 +439,14 @@ def _fetch_substack_archive(source, state_ids, since=None, author=None):
             title = post.get("title") or ""
             if not url or url in state_ids:
                 continue
-            bylines = [_norm_name(b.get("name")) for b in post.get("publishedBylines") or []]
+            seen_posts += 1
+            bylines = [b.get("name") or "" for b in post.get("publishedBylines") or []]
             if post.get("audience") != "everyone":
                 reason = "de pago"
-            elif author and bylines and bylines != [_norm_name(author)]:
-                reason = "firma invitada o coautoría"
+            elif author and bylines and not (len(bylines) == 1 and _same_author(author, bylines[0])):
+                reason = GUEST
+                for name in bylines:
+                    guest_names[name] = guest_names.get(name, 0) + 1
             elif post.get("type") != "newsletter":
                 reason = post.get("type") or "otro tipo"
             else:
@@ -451,6 +464,11 @@ def _fetch_substack_archive(source, state_ids, since=None, author=None):
 
     if skipped:
         print("  Omitidos del archivo: " + ", ".join(f"{n} {r}" for r, n in skipped.items()))
+    if author and skipped.get(GUEST, 0) * 2 > seen_posts:
+        top = max(guest_names, key=guest_names.get)
+        print(f"  [AVISO] Más de la mitad del archivo se descarta por firma ({skipped[GUEST]} de "
+              f"{seen_posts}). La firma más repetida es «{top}» y el mentor se llama «{author}»: "
+              'si son la misma persona, corrige "name" en mentors.json.')
     items.reverse()  # de la más antigua a la más reciente
     return items
 
@@ -461,11 +479,6 @@ def _fetch_gmail(source, mentor_id, state, gmail_max=20):
     query = source["query"]
     processed_ids = set(state.get(mentor_id, {}).get("processed_ids", []))
 
-    if not GMAIL_PYTHON.exists():
-        print("  [ERROR] Fuente gmail sin claudia-gmail instalada "
-              f"(falta {GMAIL_PYTHON.relative_to(REPO_ROOT)}). Configura claudia-gmail primero.")
-        return []
-
     try:
         result = subprocess.run(
             [str(GMAIL_PYTHON), str(GMAIL_SCRIPT),
@@ -475,7 +488,14 @@ def _fetch_gmail(source, mentor_id, state, gmail_max=20):
         )
         data = json.loads(result.stdout)
     except Exception as e:
-        print(f"  [ERROR] Gmail search: {e}")
+        detail = (result.stderr or "").strip().splitlines()[-1:] if "result" in locals() else []
+        print(f"  [ERROR] Gmail search: {e}" + (f" ({detail[0][:200]})" if detail else ""))
+        if "ModuleNotFoundError" in "".join(detail):
+            print("  claudia-gmail no tiene sus dependencias en "
+                  f"{GMAIL_PYTHON}. Configura claudia-gmail primero.")
+        return []
+    if data.get("error"):
+        print(f"  [ERROR] Gmail search: {data['error']}")
         return []
 
     messages = [m for m in data.get("messages", []) if m["id"] not in processed_ids]
@@ -483,8 +503,24 @@ def _fetch_gmail(source, mentor_id, state, gmail_max=20):
         return []
 
     print(f"  Gmail ({account}): {len(messages)} emails nuevos")
+    from email.utils import parsedate_to_datetime
     items = []
+    seen = set()   # (fecha, asunto) de esta pasada: el mismo correo recibido dos veces
+    skipped = {}
     for msg in messages:
+        subject = msg.get("subject", "")
+        try:
+            date_str = parsedate_to_datetime(msg.get("date", "")).strftime("%Y-%m-%d")
+        except Exception:
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        reason = next(("título excluido" for rx in source.get("exclude_title", [])
+                       if re.search(rx, subject, re.IGNORECASE)), None)
+        if not reason and (date_str, _slugify(subject)) in seen:
+            reason = "repetido"
+        if reason:
+            skipped[reason] = skipped.get(reason, 0) + 1
+            continue
+        seen.add((date_str, _slugify(subject)))
         try:
             result = subprocess.run(
                 [str(GMAIL_PYTHON), str(GMAIL_SCRIPT),
@@ -500,20 +536,16 @@ def _fetch_gmail(source, mentor_id, state, gmail_max=20):
         if not body or len(body) < 80:
             continue
 
-        try:
-            from email.utils import parsedate_to_datetime
-            date_str = parsedate_to_datetime(msg.get("date", "")).strftime("%Y-%m-%d")
-        except Exception:
-            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
         items.append({
             "id": msg["id"],
-            "title": msg.get("subject", ""),
+            "title": subject,
             "date": date_str,
             "content": body,
             "url": f"gmail://{account}/{msg['id']}",
         })
 
+    if skipped:
+        print("  Omitidos por filtros: " + ", ".join(f"{n} {r}" for r, n in skipped.items()))
     return items
 
 
@@ -677,11 +709,27 @@ def _feed_image(url):
     return root.findtext(f"{ATOM_NS}logo") or root.findtext(f"{ATOM_NS}icon")
 
 
-def cmd_fetch_photos(config, mentor_filter=None, force=False):
-    """Descarga la foto de cada mentor desde la imagen de su feed, si la hay.
+def _substack_author_photo(feed_url, author):
+    """Foto de perfil del autor en Substack (la de su firma en el archivo), o None."""
+    origin = "{0.scheme}://{0.netloc}".format(urllib.parse.urlparse(feed_url))
+    try:
+        page = _archive_page(f"{origin}/api/v1/archive?sort=new", attempts=1)
+    except Exception:
+        return None
+    if not isinstance(page, dict):
+        return None
+    for post in page.get("posts") or []:
+        for byline in post.get("publishedBylines") or []:
+            if byline.get("photo_url") and _same_author(author, byline.get("name") or ""):
+                return byline["photo_url"]
+    return None
 
-    Es la imagen de la publicación: a veces la cara del autor, a veces un logo. Revísalas; las que
-    no sirvan se sustituyen a mano en user/config/mentor-photos/<id>.jpg."""
+
+def cmd_fetch_photos(config, mentor_filter=None, force=False):
+    """Descarga la foto de cada mentor: la de su firma en Substack o, si no, la imagen de su feed.
+
+    La imagen del feed es la de la publicación: a veces la cara del autor, a veces un logo.
+    Revísalas; las que no sirvan se sustituyen a mano en user/config/mentor-photos/<id>.jpg."""
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
     for mentor in config.get("mentors", []):
         mid = mentor["id"]
@@ -691,10 +739,14 @@ def cmd_fetch_photos(config, mentor_filter=None, force=False):
         if existing and not force:
             print(f"  {mentor['name']}: ya tiene foto ({existing[0].name})")
             continue
-        url = None
-        for source in mentor.get("sources", []):
-            if source.get("type") != "rss":
-                continue
+        url, is_face = None, False
+        rss = [s for s in mentor.get("sources", []) if s.get("type") == "rss"]
+        for source in rss:
+            url = _substack_author_photo(source["url"], mentor["name"])
+            if url:
+                is_face = True
+                break
+        for source in ([] if url else rss):
             try:
                 url = _feed_image(source["url"])
             except Exception as e:
@@ -719,7 +771,9 @@ def cmd_fetch_photos(config, mentor_filter=None, force=False):
         for old in existing:
             old.unlink()
         (PHOTOS_DIR / f"{mid}{ext}").write_bytes(body)
-        print(f"  {mentor['name']}: foto guardada ({mid}{ext}, {len(body) // 1024} KB). Revisa que sea su cara y no un logo.")
+        origen = "foto de su firma en Substack" if is_face else \
+            "imagen de la publicación: revisa que sea su cara y no un logo"
+        print(f"  {mentor['name']}: foto guardada ({mid}{ext}, {len(body) // 1024} KB; {origen}).")
 
 
 def cmd_status(config, state):

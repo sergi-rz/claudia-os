@@ -65,7 +65,10 @@ def load_credentials(account_name):
         print(json.dumps({'error': f"No hay token para la cuenta '{account_name}'. Ejecuta auth.py primero."}))
         sys.exit(1)
 
-    creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    # Sin forzar scopes: se usan los que el token ya tiene. Si el token es compartido con otras
+    # APIs de Google (Calendar, Drive), refrescarlo solo con el scope de Gmail y guardarlo
+    # le quitaría los demás permisos.
+    creds = Credentials.from_authorized_user_file(token_path)
 
     if creds.expired and creds.refresh_token:
         try:
@@ -96,19 +99,20 @@ def action_accounts():
 
 
 def parse_message(msg, full=False):
-    headers = {h['name']: h['value'] for h in msg.get('payload', {}).get('headers', [])}
+    # Los nombres de cabecera no distinguen mayúsculas: hay remitentes que mandan «Message-Id».
+    headers = {h['name'].lower(): h['value'] for h in msg.get('payload', {}).get('headers', [])}
     result = {
         'id': msg['id'],
         'thread_id': msg.get('threadId', ''),
-        'from': resolve_sender(headers.get('From', '')),
-        'subject': headers.get('Subject', '(sin asunto)'),
-        'date': headers.get('Date', ''),
+        'from': resolve_sender(headers.get('from', '')),
+        'subject': headers.get('subject', '(sin asunto)'),
+        'date': headers.get('date', ''),
         'labels': msg.get('labelIds', []),
         'snippet': msg.get('snippet', ''),
     }
     if full:
-        result['message_id_header'] = headers.get('Message-ID', '')
-        result['to'] = headers.get('To', '')
+        result['message_id_header'] = headers.get('message-id', '')
+        result['to'] = headers.get('to', '')
         result['body'] = extract_body(msg.get('payload', {}))
     return result
 
@@ -316,9 +320,14 @@ def action_sendas(service):
     print(json.dumps({'send_as': aliases}, ensure_ascii=False))
 
 
-def action_draft(service, to, subject, body, reply_to=None, thread_id=None, from_addr=None):
+def action_draft(service, to, subject, body, html_body=None, reply_to=None, thread_id=None, from_addr=None):
     """Crea un borrador. Nunca envía."""
-    mime = MIMEText(body)
+    if html_body:
+        mime = MIMEMultipart('alternative')
+        mime.attach(MIMEText(body, 'plain'))
+        mime.attach(MIMEText(html_body, 'html'))
+    else:
+        mime = MIMEText(body)
     mime['to'] = to
     mime['subject'] = subject
     remitente = apply_from(mime, service, from_addr)
@@ -415,7 +424,7 @@ def main():
     parser.add_argument('--body', help='Cuerpo del borrador')
     parser.add_argument('--reply-to', help='Message-ID al que se responde')
     parser.add_argument('--thread-id', help='Thread ID para vincular el borrador al hilo')
-    parser.add_argument('--html-body', help='Cuerpo HTML del correo (para send)')
+    parser.add_argument('--html-body', help='Cuerpo HTML del correo (para draft y send); --body queda como alternativa en texto')
     parser.add_argument('--label', help='Nombre de la etiqueta')
     parser.add_argument('--from', dest='from_addr',
                         help='Remitente ("Nombre <a@b.com>" o "a@b.com"). Debe ser una dirección '
@@ -451,8 +460,8 @@ def main():
             if not all([args.to, args.subject, args.body]):
                 print(json.dumps({'error': '--to, --subject y --body son obligatorios para draft'}))
                 sys.exit(1)
-            action_draft(service, args.to, args.subject, args.body, args.reply_to, args.thread_id,
-                         from_addr=args.from_addr)
+            action_draft(service, args.to, args.subject, args.body, html_body=args.html_body,
+                         reply_to=args.reply_to, thread_id=args.thread_id, from_addr=args.from_addr)
         elif args.action == 'send':
             if not all([args.to, args.subject, args.body]):
                 print(json.dumps({'error': '--to, --subject y --body son obligatorios para send'}))

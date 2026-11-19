@@ -125,7 +125,8 @@ Cada mentor tiene una o más fuentes en `user/config/mentors.json`:
   omiten siempre; para incluirlos, `"include_shorts": true` en la fuente.
 - **Filtros de una fuente `rss` (opcionales):**
   - `exclude_title`: expresiones regulares; se omite la pieza cuyo título encaje (recopilaciones,
-    secciones fijas que no son opinión del autor).
+    secciones fijas que no son opinión del autor). Vale también en las fuentes `gmail`, sobre el
+    asunto (correos de logística, avisos de directo).
   - `min_content_chars`: se omite la pieza cuyo cuerpo en el feed sea más corto. Sirve para las
     piezas de pago de Substack, que llegan al feed con solo unas líneas.
   - **Firmas de otra persona:** si el feed trae el autor de cada pieza (`dc:creator` o el autor de
@@ -162,15 +163,19 @@ Un tipo de fuente que no sea uno de estos tres se ignora, con un aviso en el log
    que solo divulga suena igual que el resto. Lee dos o tres piezas recientes antes de decidir.
 3. Añade la entrada a `user/config/mentors.json` (`id`, `name`, `description`, `tags`, `sources`).
    Si no tiene canal propio, `"sources": []`: ver *Mentores sin canal propio*.
-   El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre.
+   El `name` es el que aparecerá como `author` en el vault: úsalo igual siempre. Tiene que estar
+   contenido en su firma del feed o de Substack («Jorge Bosch» vale para «Jorge Bosch Alés», no al
+   revés): lo demás se descarta como firma invitada. Si el backfill avisa de que más de la mitad
+   del archivo cae por firma, el `name` no coincide.
 4. Si es una fuente `api`, guarda el token en `user/credentials/.env`, nunca en el JSON.
 5. Prueba con `--dry-run --mentor <id>` y, si tiene histórico (archivo de Substack o correos en
    Gmail), lanza el backfill. Mira antes cuántas piezas son con `--backfill --dry-run`: si son muchas,
    pregunta al usuario si las quiere todas o desde una fecha (`--since`).
-6. **Foto** (para el panel del Council): `mentor_ingest.py --fetch-photos --mentor <id>` la baja de
-   la imagen de su feed, si la hay, a `user/config/mentor-photos/<id>.<ext>`. Es la imagen de la
-   publicación: mírala, y si es un logo bórrala (mejor sus iniciales que un logo) o pide al usuario
-   una foto. Los que solo publican por email no tienen imagen: la pone el usuario.
+6. **Foto** (para el panel del Council): `mentor_ingest.py --fetch-photos --mentor <id>` la baja a
+   `user/config/mentor-photos/<id>.<ext>`. En Substack coge la foto de su firma; en el resto, la
+   imagen del feed, que es la de la publicación: mírala, y si es un logo bórrala (mejor sus
+   iniciales que un logo) o pide al usuario una foto. Los que solo publican por email no tienen
+   imagen: la pone el usuario.
 
 ## Mentores sin canal propio
 

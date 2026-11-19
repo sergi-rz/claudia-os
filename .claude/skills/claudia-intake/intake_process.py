@@ -470,10 +470,17 @@ def _synthesize_with_cli(extractions):
     for n, (batch_ids, prompt) in enumerate(batches, 1):
         print(f"  Batch {n}: {len(batch_ids)} items...")
         try:
+            # El prompt lleva texto de terceros (newsletters, artículos), así que la síntesis corre
+            # sin herramientas: ni shell, ni ficheros, ni MCP, tenga los permisos que tenga el
+            # proyecto. Solo los items que hay que descargar (X Articles) reciben WebFetch.
+            needs_fetch = any(extractions[i].get("needs_webfetch") for i in batch_ids)
+            tools = ["--tools", "WebFetch", "--allowedTools", "WebFetch"] if needs_fetch \
+                else ["--tools", ""]
             result = subprocess.run(
                 # El prompt va por stdin: como argumento, Linux corta a 128 KB y una transcripción
                 # larga no cabe.
-                ["claude", "-p", "--output-format", "json", "--max-turns", "5"],
+                ["claude", "-p", "--output-format", "json", "--max-turns", "5",
+                 *tools, "--strict-mcp-config"],
                 input=prompt, capture_output=True, text=True, timeout=600,
                 cwd=str(REPO_ROOT),
             )

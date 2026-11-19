@@ -24,6 +24,12 @@ Configuracion del briefing diario que se envia por Telegram.
 | `schedules` | array | Lista de horarios. Cada uno tiene `name`, `hour`, `minute`, `days` y `sections` |
 | `sections` | object | Que incluye cada briefing: `calendar` (agenda) y `tasks` (tareas pendientes) |
 
+### `skill_update`
+
+| Key | Tipo | Qué hace |
+|---|---|---|
+| `skip_skills` | array | Skills del framework retiradas a propósito (ej: `["claudia-finanzas"]`). `/claudia-update` no las vuelve a instalar |
+
 ### `skill_council`
 
 La Sala del Consejo (panel visual del Council de `claudia-thinking`).

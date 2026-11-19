@@ -24,6 +24,17 @@ Sincroniza la instalación local con la última versión del framework publicada
 - `blueprints/_template/` + blueprints que vengan del canónico
 - Documentos raíz: `README.md`, `ROADMAP.md`, `PHILOSOPHY.md`, `CONTRIBUTING.md`, `ATTRIBUTION.md`, `SECURITY.md`, `CLAUDIA_OS_OVERVIEW.md`, `VPS.md`, `PORTABILIDAD.md`
 
+**Skills retiradas — no vuelven:**
+
+Una skill del framework que el usuario ha borrado a propósito se apunta en
+`user/config/settings.json`, y el update deja de traerla:
+```json
+"skill_update": { "skip_skills": ["claudia-finanzas"] }
+```
+Cuando el usuario pida quitar una skill del framework, o diga que no quiere una que acaba de
+llegar, bórrala (`git rm -r --cached --ignore-unmatch .claude/skills/<skill>` y borra la carpeta)
+y añádela a esa lista. Para recuperarla, quítala de la lista y lanza el update.
+
 ## Invocación
 
 - `/claudia-update` — comprueba y aplica actualizaciones
@@ -76,6 +87,12 @@ git diff --stat HEAD upstream/main -- core/ .claude/skills/ CLAUDE.md scripts/ b
 
 Si no hay cambios: _"Tu instalación ya está al día con el framework."_ Para.
 
+**Skills retiradas.** Lee `skill_update.skip_skills` en `user/config/settings.json`. Por cada
+nombre de la lista añade `":(exclude).claude/skills/<nombre>"` a este comando y a los checkouts del
+Paso 6b: esas skills no se comparan ni se instalan. Si la lista no existe pero en upstream hay una
+skill que no está en local, puede ser nueva o una que el usuario borró: en el Paso 4 preséntala
+como NUEVA y pregunta si la quiere; si dice que no, apúntala en la lista.
+
 ### Paso 3 — Detectar cambios locales no commiteados en el framework
 
 Ejecuta:
@@ -99,6 +116,32 @@ que el update no toca.
 ```
 
 Espera OK explícito. Sin OK, para.
+
+### Paso 3b — Detectar cambios locales ya commiteados en el framework
+
+El Paso 3 no ve lo que ya está en un commit, y con `git_sync` activo casi todo lo está. Tampoco
+sirve comparar historias: una instalación no comparte historia con upstream. Lo que sí se puede
+saber es si la versión local de un fichero ha existido alguna vez en upstream. Si no, la ha
+cambiado alguien en esta instalación:
+```
+git diff --name-only --diff-filter=M HEAD upstream/main -- core/ scripts/ .claude/skills/ ":(exclude).claude/skills/*/user/*" | while read -r f; do
+  local_blob=$(git rev-parse "HEAD:$f")
+  git log upstream/main --format=%H -- "$f" | while read -r c; do git rev-parse -q --verify "$c:$f"; done | grep -qx "$local_blob" || echo "$f"
+done
+```
+
+Cada fichero que salga tiene cambios propios que el update pisaría. Enséñalos con lo que cambia
+(`git diff upstream/main HEAD -- <fichero>`) y pregunta, fichero a fichero:
+
+- **Conservar la versión local:** restáuralo justo después del Paso 6 con
+  `git checkout HEAD -- <fichero>`. Avisa de que ese fichero se queda sin las mejoras de upstream.
+- **Quedarse con la de upstream:** el cambio local se pierde; sigue recuperable en el historial.
+
+Si el cambio es una personalización, su sitio es `.claude/skills/<skill>/user/behavior.md`. Si es
+un arreglo que serviría a cualquiera, sugiere proponerlo al repo canónico para no tener que
+rescatarlo en cada update.
+
+Espera respuesta. Sin respuesta, para.
 
 ### Paso 4 — Mostrar resumen de cambios
 
@@ -126,10 +169,22 @@ Si el usuario invocó con `--check`: para aquí. No apliques nada.
 
 ### Paso 5 — Confirmar
 
-Pregunta:
-> "¿Aplico estas actualizaciones? Los cambios quedarán sin commitear para que puedas revisarlos antes."
+Mira `git_sync` en `user/config/settings.json`.
 
-Espera OK explícito. Sin OK, para.
+- **`false` o ausente.** Pregunta:
+  > "¿Aplico estas actualizaciones? Los cambios quedarán sin commitear para que puedas revisarlos antes."
+- **`true`.** La sincronización automática hará commit y push de lo que traiga el update en su
+  siguiente pasada, así que no hay margen para revisar antes del commit. Dilo:
+  > "¿Aplico estas actualizaciones? Tienes la sincronización automática activa: los cambios se
+  > commitearán solos en unos minutos. Antes de aplicar dejo una etiqueta local para poder volver atrás."
+
+Espera OK explícito. Sin OK, para. Una petición expresa de actualizar no sustituye a este OK: el
+usuario aún no ha visto qué cambia.
+
+Con el OK, y antes de tocar nada, deja el punto de retorno (sea cual sea `git_sync`):
+```
+git tag pre-update-$(date +%Y%m%d-%H%M)
+```
 
 ### Paso 6 — Aplicar actualizaciones
 
@@ -168,6 +223,11 @@ git checkout upstream/main -- blueprints/<nombre>/
 
 No elimines ni modifiques blueprints locales que no aparezcan en esa lista.
 
+**6d. Ficheros que el usuario decidió conservar en el Paso 3b:**
+```
+git checkout HEAD -- <fichero>
+```
+
 ### Paso 7 — Confirmar resultado
 
 Ejecuta:
@@ -179,15 +239,23 @@ git status --porcelain
 Muestra al usuario:
 - Ficheros actualizados
 - Skills nuevas (si las hay)
-- Rollback disponible: `git checkout HEAD -- .`
-- _"Revisa los cambios con `git diff HEAD` antes de commitear."_
+- Ficheros conservados en su versión local (Paso 3b), si los hay
+- Rollback, con la etiqueta del Paso 5. Funciona también si la sincronización ya ha hecho commit:
+  ```
+  git checkout <etiqueta> -- core/ scripts/ .claude/skills/ blueprints/ CLAUDE.md README.md ROADMAP.md PHILOSOPHY.md CONTRIBUTING.md ATTRIBUTION.md SECURITY.md CLAUDIA_OS_OVERVIEW.md VPS.md PORTABILIDAD.md
+  ```
+  Eso devuelve los ficheros que existían. Los que el update añadió se listan con
+  `git diff --name-only --diff-filter=A <etiqueta> -- core/ scripts/ .claude/skills/ blueprints/`
+  y se borran a mano.
+- Con `git_sync` en `false`: _"Revisa los cambios con `git diff HEAD` antes de commitear."_
 
 ## Reglas invariantes
 
-1. **Nunca commitear.** El usuario decide cuándo.
+1. **Nunca commitear.** El usuario decide cuándo (o su sincronización automática, si la tiene: por eso la etiqueta del Paso 5).
 2. **`user/` es sagrado.** Ningún fichero bajo `user/` puede ser tocado, creado ni eliminado.
 3. **`*/user/` en skills es sagrado.** Si `git checkout` lo sobreescribe, restáuralo de inmediato.
 4. **Sin OK explícito en Paso 5, no hay Paso 6.**
 5. **Si `upstream/main` no existe, parar con mensaje claro.** No mostrar errores git crudos.
 6. **Blueprints locales no en upstream: no tocar.** Son del usuario.
 7. **No eliminar skills locales.** Una skill que esté en local pero no en upstream podría ser del usuario.
+8. **No reinstalar skills retiradas.** Lo que esté en `skill_update.skip_skills` no se trae.

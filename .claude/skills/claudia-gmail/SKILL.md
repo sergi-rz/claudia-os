@@ -20,7 +20,7 @@ Siempre con el venv de la skill (si existe) o python3 del sistema:
 python3 .claude/skills/claudia-gmail/gmail.py --account personal --action list [--max 20] [--unread]
 python3 .claude/skills/claudia-gmail/gmail.py --account personal --action read --id <message_id>
 python3 .claude/skills/claudia-gmail/gmail.py --account personal --action search --query "from:juan"
-python3 .claude/skills/claudia-gmail/gmail.py --account personal --action draft --to "a@b.com" --subject "Re: X" --body "Hola..."
+python3 .claude/skills/claudia-gmail/gmail.py --account personal --action draft --to "a@b.com" --subject "Re: X" --body "Hola..." [--html-body "<p>Hola...</p>"]
 python3 .claude/skills/claudia-gmail/gmail.py --account personal --action archive --id <message_id>
 python3 .claude/skills/claudia-gmail/gmail.py --account personal --action label --id <message_id> --label "Clientes"
 python3 .claude/skills/claudia-gmail/gmail.py --action accounts
